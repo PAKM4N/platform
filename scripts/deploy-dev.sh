@@ -29,6 +29,9 @@ export DEV_IMAGE_TAG
 
 docker compose -f "$compose_file" up -d --build --wait
 "${repo_root}/scripts/smoke-test.sh" "http://127.0.0.1:${DEV_HTTP_PORT:-18080}"
+curl --fail --silent --show-error "http://127.0.0.1:${DEV_BUDGET_HTTP_PORT:-18081}/health" >/dev/null
+curl --fail --silent --show-error "http://127.0.0.1:${DEV_BUDGET_HTTP_PORT:-18081}/" | grep -q "Presupuesta tu chatbot"
 
 echo "DEV desplegado con etiqueta ${DEV_IMAGE_TAG}."
-echo "Acceso local: http://127.0.0.1:${DEV_HTTP_PORT:-18080}"
+echo "Demo: http://127.0.0.1:${DEV_HTTP_PORT:-18080}"
+echo "Presupuestos: http://127.0.0.1:${DEV_BUDGET_HTTP_PORT:-18081}"

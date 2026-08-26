@@ -6,6 +6,11 @@
       "label": "Mercamicro Presupuestos DEV",
       "onAutoForward": "openBrowser",
       "protocol": "http"
+    },
+    "18081": {
+      "label": "Mercamicro Web comercial DEV",
+      "onAutoForward": "notify",
+      "protocol": "http"
     }
   }
 }

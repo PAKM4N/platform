@@ -7,6 +7,7 @@
     "dev": "vite --host 0.0.0.0",
     "dev:api": "node --watch server/index.js",
     "build": "vite build",
+    "build:presupuestos": "vite build --config vite.presupuestos.config.js",
     "build:sites": "vite build && node scripts/prepare-sites-build.mjs",
     "start": "vite preview --host 0.0.0.0",
     "start:api": "node server/index.js",

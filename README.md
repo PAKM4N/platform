@@ -11,6 +11,15 @@ acompañada por un chatbot web guiado y operativo:
 - pintura;
 - reformas de viviendas.
 
+El repositorio contiene dos webs relacionadas:
+
+- `presupuestos.mercamicro.es`: web comercial con estimador conversacional para
+  proyectos de chatbot;
+- `demos.mercamicro.es`: demostraciones sectoriales, formularios y chatbot
+  operativo.
+
+`demo.mercamicro.es` queda admitido como alias de redirección al dominio plural.
+
 Cada opción dispone de una ruta propia, un formulario específico y un cálculo
 orientativo ejecutado íntegramente en el navegador. El asistente recoge cinco
 variables clave, completa las restantes con los valores estándar de la demo y
@@ -48,6 +57,11 @@ DEV. El gateway escucha inicialmente solo en `127.0.0.1:18080`; puede abrirse
 desde VS Code Remote SSH mediante un puerto reenviado. No comparte redes,
 volúmenes ni secretos con producción.
 
+DEV expone por el túnel dos puertos:
+
+- `18080`: demos sectoriales y API;
+- `18081`: web comercial de presupuestos.
+
 Desde la ventana Remote SSH, abre el panel `Puertos`, reenvía el puerto `18080`
 y visita `http://127.0.0.1:18080` en el navegador del PC. El tráfico viaja por
 el túnel SSH existente y el puerto HTTP no queda expuesto en la LAN ni en
@@ -56,6 +70,25 @@ Internet.
 `scripts/validate-isolation.sh` rechaza referencias conocidas de producción
 antes de cualquier despliegue DEV. Un working tree modificado recibe una
 etiqueta temporal `dev-dirty-*` y nunca debe promocionarse a producción.
+
+### Candidatas y promoción
+
+Una release promocionable se construye una sola vez desde `main` limpio:
+
+```bash
+./scripts/build-candidate.sh
+./scripts/deploy-candidate-dev.sh <SHA-completo>
+```
+
+Después de validarla en DEV, la promoción reutiliza exactamente las mismas
+imágenes y exige confirmación explícita:
+
+```bash
+CONFIRM_PRODUCTION=YES ./scripts/promote-prod.sh <SHA-completo>
+```
+
+El script conserva la configuración y referencias anteriores, valida Caddy,
+espera los healthchecks y restaura la versión previa si falla el smoke test.
 
 ### Visual Studio Code
 

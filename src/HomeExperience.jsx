@@ -52,6 +52,7 @@ function PortalHeader() {
       <nav aria-label="Navegación principal">
         <a href="#sectores">Sectores</a>
         <a href="#bots">Bots para mensajería</a>
+        <a href="https://presupuestos.mercamicro.es">Pide tu chatbot</a>
       </nav>
       <a className="portal-header-action" href="#sectores">
         Ver demos <ArrowRight size={15} />
@@ -253,8 +254,8 @@ export default function HomeExperience() {
       <footer className="portal-footer">
         <Brand />
         <span>Soluciones digitales a medida · Demo interactiva</span>
-        <a href="#sectores">
-          Elegir otro sector <ArrowRight size={14} />
+        <a href="https://presupuestos.mercamicro.es">
+          Presupuesta tu chatbot <ArrowRight size={14} />
         </a>
       </footer>
     </div>

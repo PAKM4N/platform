@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-base_url="${1:-https://presupuestos.mercamicro.es}"
+base_url="${1:-https://demos.mercamicro.es}"
 body="$(jq -cn '{message:"limpieza",pagePath:"/",locale:"es",website:""}')"
 
 curl --fail --silent --show-error "${base_url}/health" >/dev/null

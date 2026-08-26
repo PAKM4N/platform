@@ -5,6 +5,8 @@ export const TENANT = {
   botName: "Asistente Mercamicro",
   allowedHosts: [
     "presupuestos.mercamicro.es",
+    "demo.mercamicro.es",
+    "demos.mercamicro.es",
     "ingress.chatbots.mercamicro.es",
     "localhost",
     "127.0.0.1",
