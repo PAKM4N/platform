@@ -23,6 +23,27 @@ prod_release_dir="/srv/platform/prod/releases/${sha}"
 mkdir -p "$prod_release_dir"
 chmod 700 /srv/platform/prod "$prod_release_dir"
 
+docker exec platform-core-postgres-1 \
+  pg_dump -U chatbot -d chatbot_platform --format=custom \
+  > "$prod_release_dir/chatbot_platform.before.dump"
+chmod 600 "$prod_release_dir/chatbot_platform.before.dump"
+[[ -s "$prod_release_dir/chatbot_platform.before.dump" ]]
+
+apply_caddy_file() {
+  local source_file="$1"
+  cp "$source_file" /srv/platform/config/caddy/Caddyfile
+  chmod 640 /srv/platform/config/caddy/Caddyfile
+
+  local host_hash container_hash
+  host_hash="$(sha256sum /srv/platform/config/caddy/Caddyfile | cut -d' ' -f1)"
+  container_hash="$(docker exec platform-edge-caddy-1 sha256sum /etc/caddy/Caddyfile | cut -d' ' -f1)"
+  if [[ "$host_hash" != "$container_hash" ]]; then
+    docker compose -f /srv/platform/stacks/edge/compose.yaml up -d --force-recreate --wait
+  else
+    docker exec platform-edge-caddy-1 caddy reload --config /etc/caddy/Caddyfile
+  fi
+}
+
 previous_web="$(docker inspect -f '{{.Config.Image}}' mercamicro-presupuestos-web-1)"
 previous_api="$(docker inspect -f '{{.Config.Image}}' mercamicro-presupuestos-api-1)"
 previous_budget=""
@@ -42,8 +63,7 @@ docker run --rm -v "$repo_root/deploy/prod/Caddyfile:/etc/caddy/Caddyfile:ro" ca
 export DEMO_WEB_IMAGE DEMO_API_IMAGE BUDGET_WEB_IMAGE
 docker compose -p mercamicro-presupuestos -f "$repo_root/deploy/prod/compose.yaml" up -d --no-build --wait
 
-install -m 640 "$repo_root/deploy/prod/Caddyfile" /srv/platform/config/caddy/Caddyfile
-docker exec platform-edge-caddy-1 caddy reload --config /etc/caddy/Caddyfile
+apply_caddy_file "$repo_root/deploy/prod/Caddyfile"
 
 tls_ready=false
 for attempt in {1..24}; do
@@ -60,8 +80,7 @@ if [[ "$tls_ready" != true ]] || \
    ! "$repo_root/scripts/smoke-test.sh" "https://demos.mercamicro.es" || \
    ! curl --fail --silent --show-error "https://presupuestos.mercamicro.es/" | grep -q "Presupuesta tu chatbot"; then
   echo "Falló el smoke test. Restaurando Caddy y las imágenes anteriores." >&2
-  install -m 640 "$prod_release_dir/Caddyfile.before" /srv/platform/config/caddy/Caddyfile
-  docker exec platform-edge-caddy-1 caddy reload --config /etc/caddy/Caddyfile || true
+  apply_caddy_file "$prod_release_dir/Caddyfile.before" || true
 
   export DEMO_WEB_IMAGE="$previous_web" DEMO_API_IMAGE="$previous_api"
   if [[ -n "$previous_budget" ]]; then
