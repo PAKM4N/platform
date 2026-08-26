@@ -1,0 +1,11 @@
+{
+  "remote.autoForwardPorts": false,
+  "remote.restoreForwardedPorts": true,
+  "remote.portsAttributes": {
+    "18080": {
+      "label": "Mercamicro Presupuestos DEV",
+      "onAutoForward": "openBrowser",
+      "protocol": "http"
+    }
+  }
+}

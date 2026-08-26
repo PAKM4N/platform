@@ -48,6 +48,11 @@ DEV. El gateway escucha inicialmente solo en `127.0.0.1:18080`; puede abrirse
 desde VS Code Remote SSH mediante un puerto reenviado. No comparte redes,
 volúmenes ni secretos con producción.
 
+Desde la ventana Remote SSH, abre el panel `Puertos`, reenvía el puerto `18080`
+y visita `http://127.0.0.1:18080` en el navegador del PC. El tráfico viaja por
+el túnel SSH existente y el puerto HTTP no queda expuesto en la LAN ni en
+Internet.
+
 `scripts/validate-isolation.sh` rechaza referencias conocidas de producción
 antes de cualquier despliegue DEV. Un working tree modificado recibe una
 etiqueta temporal `dev-dirty-*` y nunca debe promocionarse a producción.
