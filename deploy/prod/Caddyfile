@@ -40,10 +40,6 @@ demos.mercamicro.es {
 	}
 }
 
-demo.mercamicro.es {
-	redir https://demos.mercamicro.es{uri} permanent
-}
-
 ingress.chatbots.mercamicro.es {
 	log {
 		output stdout

@@ -45,7 +45,19 @@ docker compose -p mercamicro-presupuestos -f "$repo_root/deploy/prod/compose.yam
 install -m 640 "$repo_root/deploy/prod/Caddyfile" /srv/platform/config/caddy/Caddyfile
 docker exec platform-edge-caddy-1 caddy reload --config /etc/caddy/Caddyfile
 
-if ! "$repo_root/scripts/smoke-test.sh" "https://demos.mercamicro.es" || \
+tls_ready=false
+for attempt in {1..24}; do
+  if curl --fail --silent --show-error --max-time 10 "https://demos.mercamicro.es/health" >/dev/null 2>&1 && \
+     curl --fail --silent --show-error --max-time 10 "https://presupuestos.mercamicro.es/" | grep -q "Presupuesta tu chatbot"; then
+    tls_ready=true
+    break
+  fi
+  echo "Esperando certificados y rutas HTTPS (${attempt}/24)..."
+  sleep 5
+done
+
+if [[ "$tls_ready" != true ]] || \
+   ! "$repo_root/scripts/smoke-test.sh" "https://demos.mercamicro.es" || \
    ! curl --fail --silent --show-error "https://presupuestos.mercamicro.es/" | grep -q "Presupuesta tu chatbot"; then
   echo "Falló el smoke test. Restaurando Caddy y las imágenes anteriores." >&2
   install -m 640 "$prod_release_dir/Caddyfile.before" /srv/platform/config/caddy/Caddyfile

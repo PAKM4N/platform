@@ -18,7 +18,8 @@ El repositorio contiene dos webs relacionadas:
 - `demos.mercamicro.es`: demostraciones sectoriales, formularios y chatbot
   operativo.
 
-`demo.mercamicro.es` queda admitido como alias de redirección al dominio plural.
+`demo.mercamicro.es` queda reservado como posible alias cuando exista también
+su registro DNS.
 
 Cada opción dispone de una ruta propia, un formulario específico y un cálculo
 orientativo ejecutado íntegramente en el navegador. El asistente recoge cinco
