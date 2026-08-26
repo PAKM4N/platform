@@ -35,20 +35,34 @@ Vite reenvía `/api` a `http://127.0.0.1:3100`. El servicio local utiliza memori
 y no necesita PostgreSQL. Las pruebas del motor y de la API se ejecutan
 con `npm run test:api`.
 
+### DEV aislado en webserver01
+
+El entorno DEV se despliega desde el repositorio remoto con:
+
+```bash
+./scripts/deploy-dev.sh
+```
+
+El comando crea redes, secretos, PostgreSQL, Valkey e imágenes exclusivos de
+DEV. El gateway escucha inicialmente solo en `127.0.0.1:18080`; puede abrirse
+desde VS Code Remote SSH mediante un puerto reenviado. No comparte redes,
+volúmenes ni secretos con producción.
+
+`scripts/validate-isolation.sh` rechaza referencias conocidas de producción
+antes de cualquier despliegue DEV. Un working tree modificado recibe una
+etiqueta temporal `dev-dirty-*` y nunca debe promocionarse a producción.
+
 ### Visual Studio Code
 
-Abre la carpeta local `C:\Users\Eric\Git\demo_presupuestos` como fuente de verdad.
-Las tareas incluidas permiten iniciar Web y API, ejecutar las pruebas y compilar
-desde `Terminal > Ejecutar tarea`.
-
-Para inspeccionar el despliegue también se puede usar la extensión Remote - SSH:
+Usa VS Code Remote SSH para trabajar directamente en `webserver01`:
 
 1. conecta con `eric@172.22.121.10`;
-2. abre `/srv/platform/stacks/mercamicro-presupuestos`;
-3. usa esa vista para logs y comprobaciones, no como copia principal de edición.
+2. abre `/srv/platform/repos/platform`;
+3. modifica y valida el código únicamente desde este repositorio.
 
-El servidor contiene una copia de despliegue sin historial Git. Los cambios se
-hacen y validan en local, se confirman en Git y después se publican en el servidor.
+GitHub `PAKM4N/platform` es la fuente de verdad. La ruta
+`/srv/platform/stacks/mercamicro-presupuestos` pertenece al runtime heredado de
+producción y no debe editarse directamente.
 
 ## Compilación para Dinahosting
 

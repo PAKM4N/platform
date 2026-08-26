@@ -1,0 +1,132 @@
+name: mercamicro-presupuestos-dev
+
+services:
+  gateway:
+    image: caddy:2.11.4-alpine
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "127.0.0.1:${DEV_HTTP_PORT:-18080}:8080"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    networks:
+      - edge
+    depends_on:
+      web:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.web
+    image: mercamicro/presupuestos-web:${DEV_IMAGE_TAG:-dev}
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - edge
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:8080/health | grep -qx ok"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  api:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.api
+    image: mercamicro/presupuestos-api:${DEV_IMAGE_TAG:-dev}
+    restart: unless-stopped
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3000
+      STORAGE_MODE: postgres
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: chatbot_platform_dev
+      POSTGRES_USER: chatbot_dev
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      LOG_LEVEL: info
+      TELEGRAM_ENABLED: "false"
+    secrets:
+      - postgres_password
+    networks:
+      - edge
+      - backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  postgres:
+    image: pgvector/pgvector:0.8.6-pg18-trixie
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: chatbot_platform_dev
+      POSTGRES_USER: chatbot_dev
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
+    volumes:
+      - postgres_data:/var/lib/postgresql
+      - ../../server/migrations:/docker-entrypoint-initdb.d:ro
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chatbot_dev -d chatbot_platform_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  valkey:
+    image: valkey/valkey:9.1.1-alpine3.24
+    restart: unless-stopped
+    command:
+      - sh
+      - -c
+      - exec valkey-server --appendonly yes --requirepass "$$(cat /run/secrets/valkey_password)"
+    secrets:
+      - valkey_password
+    volumes:
+      - valkey_data:/data
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "REDISCLI_AUTH=$$(cat /run/secrets/valkey_password) valkey-cli ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+secrets:
+  postgres_password:
+    file: /srv/platform/dev/secrets/postgres_password
+  valkey_password:
+    file: /srv/platform/dev/secrets/valkey_password
+
+volumes:
+  postgres_data:
+    name: mercamicro-presupuestos-dev-postgres-data
+  valkey_data:
+    name: mercamicro-presupuestos-dev-valkey-data
+
+networks:
+  edge:
+    name: mercamicro-presupuestos-dev-edge
+  backend:
+    name: mercamicro-presupuestos-dev-backend
+    internal: true

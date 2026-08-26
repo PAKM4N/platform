@@ -1,0 +1,17 @@
+{
+    auto_https off
+    admin off
+}
+
+:8080 {
+    respond /health "ok" 200
+
+    @api path /api/chat/* /api/telegram/*
+    handle @api {
+        reverse_proxy api:3000
+    }
+
+    handle {
+        reverse_proxy web:8080
+    }
+}
