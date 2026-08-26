@@ -1,0 +1,34 @@
+{
+  "name": "mercamicro-demo",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "dev:api": "node --watch server/index.js",
+    "build": "vite build",
+    "build:sites": "vite build && node scripts/prepare-sites-build.mjs",
+    "start": "vite preview --host 0.0.0.0",
+    "start:api": "node server/index.js",
+    "preview": "vite preview --host 0.0.0.0",
+    "check:visual": "node scripts/visual-check.mjs",
+    "test:api": "node --test server/**/*.test.js"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.1.0",
+    "@fastify/helmet": "^13.0.2",
+    "@fastify/rate-limit": "^10.3.0",
+    "@fontsource-variable/manrope": "^5.3.0",
+    "@fontsource-variable/newsreader": "^5.3.0",
+    "fastify": "^5.6.2",
+    "lucide-react": "^1.28.0",
+    "postgres": "^3.4.7",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.0.5",
+    "playwright-core": "^1.62.0",
+    "vite": "^8.1.5"
+  }
+}

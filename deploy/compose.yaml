@@ -1,0 +1,66 @@
+name: mercamicro-presupuestos
+
+services:
+  web:
+    build:
+      context: ..
+      dockerfile: Dockerfile.web
+    image: mercamicro/presupuestos-web:local
+    restart: unless-stopped
+    networks:
+      edge:
+        aliases:
+          - mercamicro-presupuestos-web
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:8080/health | grep -qx ok"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  api:
+    build:
+      context: ..
+      dockerfile: Dockerfile.api
+    image: mercamicro/presupuestos-api:local
+    restart: unless-stopped
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3000
+      STORAGE_MODE: postgres
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: chatbot_platform
+      POSTGRES_USER: chatbot
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      LOG_LEVEL: info
+      TELEGRAM_ENABLED: "false"
+    secrets:
+      - postgres_password
+    networks:
+      edge:
+        aliases:
+          - mercamicro-presupuestos-api
+      backend:
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+secrets:
+  postgres_password:
+    file: /srv/platform/secrets/postgres_password
+
+networks:
+  edge:
+    external: true
+    name: platform-edge
+  backend:
+    external: true
+    name: platform-backend

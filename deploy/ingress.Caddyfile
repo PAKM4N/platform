@@ -1,0 +1,23 @@
+ingress.chatbots.mercamicro.es {
+	log {
+		output stdout
+		format json
+	}
+
+	encode zstd gzip
+
+	@chat_api path /api/chat/* /api/telegram/*
+	handle @chat_api {
+		reverse_proxy mercamicro-presupuestos-api:3000 {
+			health_uri /health
+			lb_try_duration 3s
+		}
+	}
+
+	handle {
+		reverse_proxy mercamicro-presupuestos-web:8080 {
+			health_uri /health
+			lb_try_duration 3s
+		}
+	}
+}

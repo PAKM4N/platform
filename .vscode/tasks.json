@@ -1,0 +1,52 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Mercamicro: iniciar Web",
+      "type": "npm",
+      "script": "dev",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "group": "mercamicro-dev",
+        "panel": "dedicated",
+        "reveal": "always"
+      }
+    },
+    {
+      "label": "Mercamicro: iniciar API",
+      "type": "npm",
+      "script": "dev:api",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "group": "mercamicro-dev",
+        "panel": "dedicated",
+        "reveal": "always"
+      }
+    },
+    {
+      "label": "Mercamicro: desarrollo completo",
+      "dependsOrder": "parallel",
+      "dependsOn": [
+        "Mercamicro: iniciar Web",
+        "Mercamicro: iniciar API"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Mercamicro: probar API y chatbot",
+      "type": "npm",
+      "script": "test:api",
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "Mercamicro: compilar producción",
+      "type": "npm",
+      "script": "build",
+      "group": "build",
+      "problemMatcher": []
+    }
+  ]
+}

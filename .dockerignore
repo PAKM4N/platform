@@ -1,0 +1,9 @@
+.git
+.github
+.openai
+.vscode
+dist
+node_modules
+npm-debug.log*
+server/**/*.test.js
+scripts/visual-check.mjs

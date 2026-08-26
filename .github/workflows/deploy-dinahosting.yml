@@ -1,0 +1,123 @@
+name: Publicar en Dinahosting
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmar:
+        description: Confirmo que quiero publicar la rama seleccionada en producción
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dinahosting-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Compilar y publicar
+    if: ${{ inputs.confirmar }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: production
+
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v6
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Comprobar configuración
+        env:
+          DINAHOSTING_HOST: ${{ secrets.DINAHOSTING_HOST }}
+          DINAHOSTING_USER: ${{ secrets.DINAHOSTING_USER }}
+          DINAHOSTING_PASSWORD: ${{ secrets.DINAHOSTING_PASSWORD }}
+          DINAHOSTING_PATH: ${{ secrets.DINAHOSTING_PATH }}
+        shell: bash
+        run: |
+          missing=0
+          for variable in \
+            DINAHOSTING_HOST \
+            DINAHOSTING_USER \
+            DINAHOSTING_PASSWORD \
+            DINAHOSTING_PATH
+          do
+            if [ -z "${!variable}" ]; then
+              echo "::error::Falta el secreto ${variable}."
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Compilar la web
+        run: npm run build
+
+      - name: Verificar los archivos de publicación
+        shell: bash
+        run: |
+          test -f dist/index.html
+          test -f dist/.htaccess
+          test -d dist/assets
+          test -d dist/sectors
+
+      - name: Publicar por FTPS
+        env:
+          DINAHOSTING_HOST: ${{ secrets.DINAHOSTING_HOST }}
+          DINAHOSTING_USER: ${{ secrets.DINAHOSTING_USER }}
+          DINAHOSTING_PASSWORD: ${{ secrets.DINAHOSTING_PASSWORD }}
+          DINAHOSTING_PATH: ${{ secrets.DINAHOSTING_PATH }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          remote_path="${DINAHOSTING_PATH#/}"
+          remote_path="${remote_path%/}"
+          deploy_config="${RUNNER_TEMP}/dinahosting.curl"
+          trap 'rm -f "$deploy_config"' EXIT
+
+          escape_curl_config() {
+            printf '%s' "$1" | sed \
+              -e 's/\\/\\\\/g' \
+              -e 's/"/\\"/g' \
+              -e 's/\r/\\r/g' \
+              -e 's/\n/\\n/g'
+          }
+
+          escaped_user="$(escape_curl_config "$DINAHOSTING_USER")"
+          escaped_password="$(escape_curl_config "$DINAHOSTING_PASSWORD")"
+
+          {
+            printf 'user = "%s:%s"\n' "$escaped_user" "$escaped_password"
+            echo 'ssl-reqd'
+            echo 'ftp-create-dirs'
+            echo 'ftp-pasv'
+            echo 'fail'
+            echo 'silent'
+            echo 'show-error'
+            echo 'connect-timeout = 20'
+            echo 'retry = 2'
+          } > "$deploy_config"
+
+          chmod 600 "$deploy_config"
+
+          while IFS= read -r -d '' local_file; do
+            relative_path="${local_file#dist/}"
+            echo "Subiendo ${relative_path}"
+            curl --config "$deploy_config" \
+              --upload-file "$local_file" \
+              "ftp://${DINAHOSTING_HOST}:21/${remote_path}/${relative_path}"
+          done < <(find dist -type f -print0)
+
+      - name: Resumen
+        run: echo "La versión ${GITHUB_SHA::7} se ha publicado en Dinahosting."
