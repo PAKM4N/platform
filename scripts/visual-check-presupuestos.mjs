@@ -36,6 +36,13 @@ for (const answer of [
   await page.waitForTimeout(180);
 }
 await page.getByText("PRIMERA ESTIMACIÓN", { exact: true }).waitFor();
+await page.getByRole("button", { name: "Revisar respuestas" }).click();
+await page.getByText("¿Cómo debe conversar?", { exact: true }).waitFor();
+if (!(await page.getByRole("button", { name: "Guiado, pero entendiendo texto libre" }).getAttribute("class"))?.includes("selected")) {
+  throw new Error("La navegación hacia atrás no conserva la respuesta anterior.");
+}
+await page.getByRole("button", { name: "Guiado, pero entendiendo texto libre" }).click();
+await page.getByText("PRIMERA ESTIMACIÓN", { exact: true }).waitFor();
 await page.screenshot({ path: new URL("presupuestos-resultado.png", outputDir).pathname });
 
 await page.setViewportSize({ width: 390, height: 844 });

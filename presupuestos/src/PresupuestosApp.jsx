@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
 import {
+  ArrowDown,
+  ArrowLeft,
   ArrowRight,
   BarChart3,
   Bot,
@@ -152,6 +154,10 @@ function Estimator({ onClose }) {
     setStep(0);
   };
 
+  const goBack = () => {
+    setStep((current) => Math.max(0, current - 1));
+  };
+
   const question = QUESTIONS[step];
 
   return (
@@ -170,6 +176,12 @@ function Estimator({ onClose }) {
       </div>
 
       <div className="estimator-body">
+        {step > 0 && (
+          <button type="button" className="estimator-back" onClick={goBack}>
+            <ArrowLeft size={17} />
+            {finished ? "Revisar respuestas" : "Respuesta anterior"}
+          </button>
+        )}
         {!finished ? (
           <>
             <div className="assistant-message">
@@ -257,13 +269,20 @@ export default function PresupuestosApp() {
           </div>
         </section>
 
-        <section className="trust-strip" aria-label="Capacidades">
-          <span>ESTRATEGIA</span><i />
-          <span>DISEÑO UX/UI</span><i />
-          <span>DESARROLLO WEB</span><i />
-          <span>CHATBOTS</span><i />
-          <span>INTEGRACIONES</span><i />
-          <span>MEJORA CONTINUA</span>
+        <section className="trust-strip" aria-label="Capacidades del equipo">
+          <div className="trust-strip-heading">
+            <small>DE PRINCIPIO A FIN</small>
+            <strong>Todo el proyecto, conectado.</strong>
+          </div>
+          <div className="trust-strip-list">
+            <span><b>01</b> Estrategia</span>
+            <span><b>02</b> Diseño UX/UI</span>
+            <span><b>03</b> Desarrollo web</span>
+            <span><b>04</b> Chatbots</span>
+            <span><b>05</b> Integraciones</span>
+            <span><b>06</b> Mejora continua</span>
+          </div>
+          <a href="#solucion">Así lo construimos <ArrowDown size={17} /></a>
         </section>
 
         <section className="solution-section" id="solucion">

@@ -71,6 +71,9 @@ button { cursor: pointer; }
 .estimator-progress { height: 3px; background: #dfe6f5; }
 .estimator-progress i { display: block; width: 100%; height: 100%; transform-origin: left; background: var(--coral); transition: transform 300ms ease; }
 .estimator-body { min-height: 455px; padding: 28px 25px 20px; background: radial-gradient(circle at 100% 0, #e8efff, transparent 48%), #f6f8fd; }
+.estimator-back { display: inline-flex; align-items: center; gap: 7px; margin: -7px 0 13px; padding: 7px 9px 7px 5px; border: 0; border-radius: 5px; color: #4d6082; background: transparent; font-size: 13px; font-weight: 800; transition: color 130ms ease, background 130ms ease; }
+.estimator-back:hover { color: var(--blue); background: rgba(49,91,216,.08); }
+.estimator-back:focus-visible { outline: 3px solid rgba(49,91,216,.25); outline-offset: 2px; }
 .assistant-message { max-width: 96%; padding: 18px 19px; border-radius: 3px 15px 15px; background: #fff; box-shadow: 0 7px 24px rgba(24,46,91,.08); }
 .assistant-message small { color: #71809c; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 .assistant-message p { margin: 9px 0 7px; color: #1e2d4d; font-size: 17px; font-weight: 800; line-height: 1.4; }
@@ -80,7 +83,7 @@ button { cursor: pointer; }
 .estimator-options button:hover, .estimator-options button.selected { border-color: #6686df; color: #234aa8; background: #fff; transform: translateX(2px); }
 .estimator-options svg { flex: 0 0 auto; color: #8c9ab4; }
 .estimator-note { display: flex; align-items: center; justify-content: center; gap: 7px; margin: 0; padding: 12px; color: #7b8496; background: #fff; font-size: 10px; }
-.estimator-result { display: grid; min-height: 410px; align-content: center; justify-items: center; text-align: center; }
+.estimator-result { display: grid; min-height: 368px; align-content: center; justify-items: center; text-align: center; }
 .result-icon { display: grid; width: 48px; height: 48px; place-items: center; margin-bottom: 14px; border-radius: 50%; color: #fff; background: var(--blue); box-shadow: 0 12px 28px rgba(49,91,216,.27); }
 .estimator-result > small { color: #71809c; font-size: 10px; font-weight: 850; letter-spacing: .12em; }
 .estimator-result h3 { margin: 10px 0 14px; color: var(--navy); font-family: "Newsreader Variable", Georgia, serif; font-size: 36px; font-weight: 520; letter-spacing: -.035em; }
@@ -89,8 +92,15 @@ button { cursor: pointer; }
 .result-actions a { display: inline-flex; align-items: center; gap: 8px; padding: 13px 15px; border-radius: 4px; color: #fff; background: var(--blue); font-size: 12px; font-weight: 800; }
 .result-actions button { display: inline-flex; align-items: center; gap: 6px; border: 0; color: #657188; background: transparent; font-size: 12px; font-weight: 750; }
 
-.trust-strip { display: flex; min-height: 88px; align-items: center; justify-content: center; gap: clamp(16px, 2.8vw, 42px); padding: 0 4vw; overflow: hidden; color: #aab5ce; background: var(--navy); font-size: 10px; font-weight: 850; letter-spacing: .12em; white-space: nowrap; }
-.trust-strip i { width: 3px; height: 3px; border-radius: 50%; background: var(--coral); }
+.trust-strip { display: grid; grid-template-columns: minmax(210px, .7fr) minmax(520px, 1.8fr) auto; align-items: center; gap: clamp(30px, 4vw, 64px); padding: 38px max(48px, calc((100vw - 1260px)/2)); border-block: 1px solid #cdd5e6; color: var(--navy); background: #e8edf8; }
+.trust-strip-heading { display: grid; gap: 6px; }
+.trust-strip-heading small { color: var(--blue); font-size: 11px; font-weight: 850; letter-spacing: .11em; }
+.trust-strip-heading strong { font-family: "Newsreader Variable", Georgia, serif; font-size: 23px; font-weight: 520; letter-spacing: -.025em; line-height: 1.1; }
+.trust-strip-list { display: grid; grid-template-columns: repeat(3, minmax(135px, 1fr)); gap: 15px 26px; }
+.trust-strip-list span { display: flex; align-items: baseline; gap: 9px; color: #33425f; font-size: 15px; font-weight: 800; line-height: 1.3; }
+.trust-strip-list b { color: #7b8db1; font-size: 11px; letter-spacing: .08em; }
+.trust-strip > a { display: inline-flex; align-items: center; gap: 9px; padding-bottom: 5px; border-bottom: 1px solid #7c8daf; color: #3d4f70; font-size: 13px; font-weight: 800; white-space: nowrap; }
+.trust-strip > a:hover { color: var(--blue); border-color: var(--blue); }
 .solution-section { max-width: 1260px; margin: 0 auto; padding: 120px 40px 130px; }
 .section-heading { display: grid; grid-template-columns: .65fr 1.35fr; align-items: start; gap: 60px; }
 .section-heading h2, .included-section h2, .demo-callout h2, .website-section h2 { margin: 0; color: var(--navy); font-family: "Newsreader Variable", Georgia, serif; font-size: clamp(42px, 4.2vw, 60px); font-weight: 450; letter-spacing: -.043em; line-height: 1.04; }
@@ -171,6 +181,9 @@ button { cursor: pointer; }
   .hero-signature { display: none; }
   .hero-estimator { display: none; max-width: 560px; width: 100%; margin: 34px auto 0; text-align: left; }
   .hero-estimator.is-visible { display: block; }
+  .trust-strip { grid-template-columns: 1fr auto; gap: 26px 40px; padding: 34px 6vw; }
+  .trust-strip-list { grid-column: 1 / -1; grid-row: 2; }
+  .trust-strip > a { grid-column: 2; grid-row: 1; }
   .section-heading, .included-section { grid-template-columns: 1fr; gap: 34px; }
   .solution-grid { grid-template-columns: 1fr; }
   .solution-grid article, .solution-grid article + article { min-height: 220px; padding: 28px 0; border-right: 0; border-bottom: 1px solid var(--line); }
@@ -193,7 +206,11 @@ button { cursor: pointer; }
   .hero-actions { flex-direction: column; gap: 17px; }
   .hero-actions button { width: 100%; justify-content: center; }
   .hero-proof { gap: 11px 16px; font-size: 10px; }
-  .trust-strip { justify-content: flex-start; }
+  .trust-strip { grid-template-columns: 1fr; gap: 24px; padding: 32px 20px; }
+  .trust-strip-heading strong { font-size: 25px; }
+  .trust-strip-list { grid-column: 1; grid-row: auto; grid-template-columns: 1fr 1fr; gap: 17px 12px; }
+  .trust-strip-list span { font-size: 13px; }
+  .trust-strip > a { grid-column: 1; grid-row: auto; justify-self: start; font-size: 13px; }
   .solution-section { padding: 75px 20px; }
   .section-heading h2, .included-section h2, .demo-callout h2, .website-section h2 { font-size: 40px; }
   .section-heading { gap: 24px; }
