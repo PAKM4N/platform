@@ -1,9 +1,7 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import {
-  ArrowDown,
   ArrowLeft,
   ArrowRight,
-  BarChart3,
   Bot,
   Braces,
   Check,
@@ -23,16 +21,61 @@ import {
 
 const DEMO_URL = "https://demos.mercamicro.es";
 
+const CHATBOT_TYPES = [
+  {
+    id: "whatsapp-auto",
+    label: "Respuestas automáticas de WhatsApp Business",
+    implementation: "0–300 €",
+    monthly: "0 €",
+  },
+  {
+    id: "basic",
+    label: "Chatbot básico con menús y reglas",
+    implementation: "300–1.500 €",
+    monthly: "30–250 €",
+  },
+  {
+    id: "professional",
+    label: "Chatbot profesional con bandeja de agentes",
+    implementation: "1.000–5.000 €",
+    monthly: "150–600 €",
+  },
+  {
+    id: "ai",
+    label: "Chatbot con inteligencia artificial",
+    implementation: "2.500–10.000 €",
+    monthly: "300–1.500 €",
+  },
+  {
+    id: "ai-integrated",
+    label: "Agente de IA conectado con CRM o ERP",
+    implementation: "5.000–20.000 € o más",
+    monthly: "600–3.000 € o más",
+  },
+  {
+    id: "custom",
+    label: "Desarrollo empresarial completamente a medida",
+    implementation: "Presupuesto personalizado",
+    monthly: "Presupuesto personalizado",
+  },
+];
+
 const QUESTIONS = [
   {
-    id: "scope",
-    text: "¿Qué necesitas construir?",
-    hint: "Podemos integrar el chatbot en tu web actual o crear toda la experiencia desde cero.",
+    id: "type",
+    text: "¿Qué tipo de solución se acerca más a lo que necesitas?",
+    hint: "Elige una referencia. La ajustaremos contigo según el alcance real.",
+    options: CHATBOT_TYPES.map(({ id, label }) => [id, label]),
+  },
+  {
+    id: "website",
+    text: "¿En qué entorno funcionará?",
+    hint: "La web, si hay que crearla, se valora por separado del chatbot.",
     options: [
-      ["bot", "Un chatbot para mi web actual", 0],
-      ["landing", "Una landing nueva + chatbot", 2200],
-      ["website", "Una web completa + chatbot", 4200],
-      ["unknown", "Necesito que me recomendéis", 1200],
+      ["whatsapp", "Solo WhatsApp; no necesito web"],
+      ["existing", "En mi web actual"],
+      ["landing", "En una landing nueva"],
+      ["complete", "En una web completa nueva"],
     ],
   },
   {
@@ -40,10 +83,10 @@ const QUESTIONS = [
     text: "¿Qué trabajo quieres que haga el chatbot?",
     hint: "Elige el objetivo principal; después podremos combinar funciones.",
     options: [
-      ["support", "Responder consultas frecuentes", 900],
-      ["leads", "Captar y cualificar contactos", 1200],
-      ["quotes", "Preparar presupuestos", 1700],
-      ["bookings", "Gestionar reservas o citas", 1500],
+      ["support", "Responder consultas frecuentes"],
+      ["leads", "Captar y cualificar contactos"],
+      ["quotes", "Preparar presupuestos"],
+      ["bookings", "Gestionar reservas o citas"],
     ],
   },
   {
@@ -51,10 +94,10 @@ const QUESTIONS = [
     text: "¿Dónde debería atender a tus clientes?",
     hint: "Puedes empezar por un canal y ampliar después.",
     options: [
-      ["web", "En mi página web", 0],
-      ["whatsapp", "WhatsApp", 850],
-      ["telegram", "Telegram", 450],
-      ["multi", "En varios canales", 1300],
+      ["web", "Página web"],
+      ["whatsapp", "WhatsApp"],
+      ["telegram", "Telegram"],
+      ["multi", "Varios canales"],
     ],
   },
   {
@@ -62,36 +105,13 @@ const QUESTIONS = [
     text: "¿Necesita conectarse con otras herramientas?",
     hint: "Por ejemplo, CRM, agenda, ERP, correo o una base de datos.",
     options: [
-      ["none", "No, puede funcionar de forma independiente", 0],
-      ["simple", "Sí, con una herramienta", 750],
-      ["several", "Sí, con varios sistemas", 1700],
-      ["unknown", "No lo sé todavía", 450],
-    ],
-  },
-  {
-    id: "conversation",
-    text: "¿Cómo debe conversar?",
-    hint: "Esto determina la lógica y el trabajo de entrenamiento.",
-    options: [
-      ["guided", "Flujo guiado con opciones claras", 0],
-      ["hybrid", "Guiado, pero entendiendo texto libre", 950],
-      ["ai", "Conversación avanzada con IA", 2100],
-      ["unknown", "Quiero que me recomendéis", 650],
+      ["none", "No, puede funcionar de forma independiente"],
+      ["simple", "Sí, con una herramienta"],
+      ["several", "Sí, con varios sistemas"],
+      ["unknown", "No lo sé todavía"],
     ],
   },
 ];
-
-function estimate(answers) {
-  const subtotal = QUESTIONS.reduce((total, question) => {
-    const option = question.options.find(([id]) => id === answers[question.id]);
-    return total + (option?.[2] || 0);
-  }, 0);
-  const base = 950 + subtotal;
-  return {
-    minimum: Math.round(base / 100) * 100,
-    maximum: Math.round((base * 1.32 + 350) / 100) * 100,
-  };
-}
 
 function Brand() {
   return (
@@ -105,35 +125,34 @@ function Brand() {
   );
 }
 
-function WebsitePreview() {
+function ProjectScope() {
+  const stages = [
+    ["01", "Estrategia y contenidos", "Objetivos, arquitectura y mensajes principales."],
+    ["02", "Diseño UX/UI", "Prototipo responsive adaptado a tu marca."],
+    ["03", "Desarrollo e integraciones", "Web, chatbot, analítica y conexiones necesarias."],
+    ["04", "Lanzamiento y mejora", "Pruebas, despliegue y seguimiento de resultados."],
+  ];
+
   return (
-    <div className="website-preview" aria-hidden="true">
-      <div className="preview-browser">
-        <div className="preview-chrome">
-          <span /><span /><span />
-          <i>tunegocio.es</i>
-        </div>
-        <div className="preview-canvas">
-          <div className="preview-nav"><b>Tu marca</b><span>Servicios&nbsp;&nbsp; Proyectos&nbsp;&nbsp; Contacto</span></div>
-          <div className="preview-hero">
-            <small>UNA PROPUESTA CLARA</small>
-            <strong>Tu negocio,<br />mejor explicado.</strong>
-            <i />
-          </div>
-          <div className="preview-metrics">
-            <span><b>+37%</b><small>solicitudes</small></span>
-            <span><b>24/7</b><small>atención</small></span>
-            <span><b>1 web</b><small>todo conectado</small></span>
-          </div>
-        </div>
+    <div className="project-scope">
+      <div className="project-scope-heading">
+        <small>ALCANCE HABITUAL</small>
+        <strong>Web completa + asistente</strong>
       </div>
-      <div className="preview-chat">
-        <span><Bot size={17} /></span>
-        <p>Hola, ¿quieres que te ayude a elegir el servicio adecuado?</p>
-        <div><i /><i /><i /></div>
+      <div className="project-scope-stages">
+        {stages.map(([number, title, description]) => (
+          <div className="project-scope-stage" key={number}>
+            <span>{number}</span>
+            <div>
+              <b>{title}</b>
+              <p>{description}</p>
+            </div>
+          </div>
+        ))}
       </div>
-      <span className="preview-label preview-label-design"><LayoutTemplate size={15} /> Diseño propio</span>
-      <span className="preview-label preview-label-speed"><BarChart3 size={15} /> Medible</span>
+      <div className="project-scope-footer">
+        <Check size={18} /> Una única experiencia, diseñada y construida de principio a fin.
+      </div>
     </div>
   );
 }
@@ -142,7 +161,8 @@ function Estimator({ onClose }) {
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState({});
   const finished = step >= QUESTIONS.length;
-  const result = useMemo(() => estimate(answers), [answers]);
+  const result = CHATBOT_TYPES.find(({ id }) => id === answers.type) || CHATBOT_TYPES[0];
+  const needsNewWebsite = answers.website === "landing" || answers.website === "complete";
 
   const choose = (id, value) => {
     setAnswers((current) => ({ ...current, [id]: value }));
@@ -161,7 +181,7 @@ function Estimator({ onClose }) {
   const question = QUESTIONS[step];
 
   return (
-    <section className="budget-estimator" id="calculadora" aria-label="Estimador de chatbot">
+    <section className="budget-estimator" id="calculadora" aria-label="Estimador de proyecto">
       <div className="estimator-topbar">
         <span className="estimator-avatar"><Bot size={22} /></span>
         <span>
@@ -204,12 +224,17 @@ function Estimator({ onClose }) {
           </>
         ) : (
           <div className="estimator-result">
-            <span className="result-icon"><Sparkles size={23} /></span>
-            <small>PRIMERA ESTIMACIÓN</small>
-            <h3>{result.minimum.toLocaleString("es-ES")} € — {result.maximum.toLocaleString("es-ES")} €</h3>
+            <span className="result-icon"><Sparkles size={22} /></span>
+            <small>REFERENCIA ORIENTATIVA</small>
+            <h3>{result.label}</h3>
+            <div className="result-prices">
+              <span><small>Implantación</small><strong>{result.implementation}</strong></span>
+              <span><small>Coste mensual</small><strong>{result.monthly}</strong></span>
+            </div>
             <p>
-              Esta horquilla sirve para situar el proyecto. Revisaremos contigo
-              los flujos, integraciones y alcance antes de preparar una propuesta cerrada.
+              {needsNewWebsite
+                ? "El diseño y desarrollo de la web se valoran por separado según su alcance."
+                : "Confirmaremos funciones, canales e integraciones antes de preparar la propuesta cerrada."}
             </p>
             <div className="result-actions">
               <a href={DEMO_URL}>Ver una demo real <ArrowRight size={16} /></a>
@@ -237,8 +262,8 @@ export default function PresupuestosApp() {
         <Brand />
         <nav aria-label="Navegación principal">
           <a href="#solucion">Cómo funciona</a>
+          <a href="#precios">Precios orientativos</a>
           <a href="#web-completa">Web completa</a>
-          <a href="#incluye">Qué incluye</a>
           <a className="demo-link" href={DEMO_URL}>Ver demos <ArrowRight size={14} /></a>
         </nav>
       </header>
@@ -269,20 +294,34 @@ export default function PresupuestosApp() {
           </div>
         </section>
 
-        <section className="trust-strip" aria-label="Capacidades del equipo">
-          <div className="trust-strip-heading">
-            <small>DE PRINCIPIO A FIN</small>
-            <strong>Todo el proyecto, conectado.</strong>
+        <section className="pricing-section" id="precios">
+          <div className="pricing-heading">
+            <span className="budget-eyebrow"><i /> PRECIOS ORIENTATIVOS</span>
+            <h2>Una referencia clara antes de definir el alcance.</h2>
+            <p>El precio final depende de funciones, canales, integraciones y volumen de uso.</p>
           </div>
-          <div className="trust-strip-list">
-            <span><b>01</b> Estrategia</span>
-            <span><b>02</b> Diseño UX/UI</span>
-            <span><b>03</b> Desarrollo web</span>
-            <span><b>04</b> Chatbots</span>
-            <span><b>05</b> Integraciones</span>
-            <span><b>06</b> Mejora continua</span>
+          <span className="pricing-scroll-hint">Desliza la tabla para comparar todos los importes →</span>
+          <div className="pricing-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Tipo de chatbot</th>
+                  <th>Implantación orientativa</th>
+                  <th>Coste mensual orientativo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {CHATBOT_TYPES.map((type) => (
+                  <tr key={type.id}>
+                    <td data-label="Tipo de chatbot">{type.label}</td>
+                    <td data-label="Implantación">{type.implementation}</td>
+                    <td data-label="Coste mensual">{type.monthly}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-          <a href="#solucion">Así lo construimos <ArrowDown size={17} /></a>
+          <p className="pricing-note">Importes sin impuestos. Las licencias o consumos de terceros, si los hubiera, se detallan antes de contratar.</p>
         </section>
 
         <section className="solution-section" id="solucion">
@@ -326,7 +365,7 @@ export default function PresupuestosApp() {
             </div>
             <button type="button" onClick={openEstimator}>Estimar web + chatbot <ArrowRight size={18} /></button>
           </div>
-          <WebsitePreview />
+          <ProjectScope />
         </section>
 
         <section className="included-section" id="incluye">

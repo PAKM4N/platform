@@ -23,26 +23,29 @@ await page.getByRole("heading", { name: /Una web que explica bien/i }).waitFor()
 if ((await page.locator(`a[href="https://demos.mercamicro.es"]`).count()) < 3) {
   throw new Error("La web no ofrece suficientes enlaces claros hacia las demos.");
 }
+await page.getByRole("cell", { name: "5.000–20.000 € o más" }).waitFor();
 await page.screenshot({ path: new URL("presupuestos-desktop.png", outputDir).pathname, fullPage: true });
 
 for (const answer of [
-  "Una web completa + chatbot",
+  "Chatbot con inteligencia artificial",
+  "En una web completa nueva",
   "Preparar presupuestos",
-  "En mi página web",
+  "Página web",
   "Sí, con una herramienta",
-  "Guiado, pero entendiendo texto libre",
 ]) {
   await page.getByRole("button", { name: answer }).click();
   await page.waitForTimeout(180);
 }
-await page.getByText("PRIMERA ESTIMACIÓN", { exact: true }).waitFor();
+await page.getByText("REFERENCIA ORIENTATIVA", { exact: true }).waitFor();
+await page.getByLabel("Estimador de proyecto").getByText("2.500–10.000 €", { exact: true }).waitFor();
+await page.getByLabel("Estimador de proyecto").getByText("300–1.500 €", { exact: true }).waitFor();
 await page.getByRole("button", { name: "Revisar respuestas" }).click();
-await page.getByText("¿Cómo debe conversar?", { exact: true }).waitFor();
-if (!(await page.getByRole("button", { name: "Guiado, pero entendiendo texto libre" }).getAttribute("class"))?.includes("selected")) {
+await page.getByText("¿Necesita conectarse con otras herramientas?", { exact: true }).waitFor();
+if (!(await page.getByRole("button", { name: "Sí, con una herramienta" }).getAttribute("class"))?.includes("selected")) {
   throw new Error("La navegación hacia atrás no conserva la respuesta anterior.");
 }
-await page.getByRole("button", { name: "Guiado, pero entendiendo texto libre" }).click();
-await page.getByText("PRIMERA ESTIMACIÓN", { exact: true }).waitFor();
+await page.getByRole("button", { name: "Sí, con una herramienta" }).click();
+await page.getByText("REFERENCIA ORIENTATIVA", { exact: true }).waitFor();
 await page.screenshot({ path: new URL("presupuestos-resultado.png", outputDir).pathname });
 
 await page.setViewportSize({ width: 390, height: 844 });
