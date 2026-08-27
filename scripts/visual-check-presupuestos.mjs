@@ -19,13 +19,14 @@ page.on("console", (message) => {
 page.on("pageerror", (error) => errors.push(error.message));
 
 await page.goto(baseUrl, { waitUntil: "networkidle" });
-await page.getByRole("heading", { name: /Tu próximo chatbot/i }).waitFor();
+await page.getByRole("heading", { name: /Una web que explica bien/i }).waitFor();
 if ((await page.locator(`a[href="https://demos.mercamicro.es"]`).count()) < 3) {
   throw new Error("La web no ofrece suficientes enlaces claros hacia las demos.");
 }
 await page.screenshot({ path: new URL("presupuestos-desktop.png", outputDir).pathname, fullPage: true });
 
 for (const answer of [
+  "Una web completa + chatbot",
   "Preparar presupuestos",
   "En mi página web",
   "Sí, con una herramienta",
