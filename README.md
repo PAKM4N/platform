@@ -8,11 +8,8 @@ El repositorio contiene dos webs relacionadas:
 
 - `presupuestos.mercamicro.es`: web comercial para configurar webs, chatbots y
   automatizaciones según necesidades reales;
-- `demo.mercamicro.es`: biblioteca de 18 recorridos configurables, siete
+- `demos.mercamicro.es`: biblioteca de 18 recorridos configurables, siete
   simuladores con cálculo detallado y chatbot sectorial operativo.
-
-`demos.mercamicro.es` puede mantenerse como alias de compatibilidad, pero los
-enlaces públicos usan el dominio singular.
 
 El configurador comercial no expone una tabla ni obliga a escoger paquetes:
 pregunta por objetivos, funcionamiento, canales, extras, web y alojamiento. El

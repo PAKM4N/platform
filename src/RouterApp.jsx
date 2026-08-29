@@ -52,7 +52,7 @@ function updateMetadata({ service, demo, pathname }) {
   }
   canonical.setAttribute(
     "href",
-    `https://demo.mercamicro.es${pathname === "/demos" ? "/" : pathname}`,
+    `https://demos.mercamicro.es${pathname === "/demos" ? "/" : pathname}`,
   );
 }
 

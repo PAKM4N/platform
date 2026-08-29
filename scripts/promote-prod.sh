@@ -129,7 +129,7 @@ fi
 
 tls_ready=false
 for attempt in {1..24}; do
-  if curl --fail --silent --show-error --max-time 10 "https://demo.mercamicro.es/health" >/dev/null 2>&1 && \
+  if curl --fail --silent --show-error --max-time 10 "https://demos.mercamicro.es/health" >/dev/null 2>&1 && \
      curl --fail --silent --show-error --max-time 10 "https://presupuestos.mercamicro.es/" | grep -q "Webs y automatizaciones a medida"; then
     tls_ready=true
     break
@@ -149,7 +149,7 @@ project_lead_route_responds() {
 }
 
 if [[ "$tls_ready" != true ]] || \
-   ! "$repo_root/scripts/smoke-test.sh" "https://demo.mercamicro.es" || \
+   ! "$repo_root/scripts/smoke-test.sh" "https://demos.mercamicro.es" || \
    ! curl --fail --silent --show-error "https://presupuestos.mercamicro.es/" | grep -q "Webs y automatizaciones a medida" || \
    ! project_lead_route_responds; then
   echo "Falló el smoke test. Restaurando Caddy y las imágenes anteriores." >&2

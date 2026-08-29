@@ -3,7 +3,7 @@ set -eu
 
 token_file="${TELEGRAM_BOT_TOKEN_FILE:-/srv/platform/secrets/mercamicro_presupuestos_telegram_token}"
 secret_file="${TELEGRAM_WEBHOOK_SECRET_FILE:-/srv/platform/secrets/mercamicro_presupuestos_telegram_webhook_secret}"
-webhook_url="${TELEGRAM_WEBHOOK_URL:-https://demo.mercamicro.es/api/telegram/mercamicro-presupuestos/asistente-presupuestos/webhook}"
+webhook_url="${TELEGRAM_WEBHOOK_URL:-https://demos.mercamicro.es/api/telegram/mercamicro-presupuestos/asistente-presupuestos/webhook}"
 
 if [ ! -s "$token_file" ] || [ ! -s "$secret_file" ]; then
   echo "Falta el token de Telegram o el secreto del webhook." >&2

@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import ProjectConfigurator from "./ProjectConfigurator";
 
-const DEMO_URL = "https://demo.mercamicro.es";
+const DEMO_URL = "https://demos.mercamicro.es";
 
 function Brand() {
   return (

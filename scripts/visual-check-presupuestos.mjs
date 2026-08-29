@@ -44,8 +44,8 @@ await page.route("**/api/project-leads", async (route) => {
 
 await page.goto(baseUrl, { waitUntil: "networkidle" });
 await page.getByRole("heading", { name: /Una web que explica bien/i }).waitFor();
-if ((await page.locator('a[href="https://demo.mercamicro.es"]').count()) < 3) {
-  throw new Error("La web comercial no enlaza claramente con demo.mercamicro.es.");
+if ((await page.locator('a[href="https://demos.mercamicro.es"]').count()) < 3) {
+  throw new Error("La web comercial no enlaza claramente con demos.mercamicro.es.");
 }
 if ((await page.locator("table, .pricing-section, .pricing-table-wrap").count()) !== 0) {
   throw new Error("La tabla pública de precios sigue presente.");

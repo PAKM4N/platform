@@ -4,7 +4,7 @@ La plataforma mantiene dos experiencias web separadas, pero comparte los
 módulos de dominio que deben producir resultados idénticos en navegador y API:
 
 - `presupuestos.mercamicro.es`: configurador comercial y captación de leads.
-- `demo.mercamicro.es`: biblioteca de demostraciones interactivas.
+- `demos.mercamicro.es`: biblioteca de demostraciones interactivas.
 
 ## Límites de los módulos
 

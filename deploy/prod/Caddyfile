@@ -27,7 +27,7 @@ presupuestos.mercamicro.es {
 	}
 }
 
-demo.mercamicro.es, demos.mercamicro.es {
+demos.mercamicro.es {
 	log {
 		output stdout
 		format json
