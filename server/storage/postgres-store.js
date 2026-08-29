@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import postgres from "postgres";
+import { runMigrations } from "../migrations-runner.js";
 
 const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
 
@@ -35,11 +36,7 @@ export class PostgresStore {
       connect_timeout: 10,
     });
 
-    const migration = await readFile(
-      path.join(currentDirectory, "..", "migrations", "001_chatbot.sql"),
-      "utf8",
-    );
-    await this.sql.unsafe(migration);
+    await runMigrations(this.sql, path.join(currentDirectory, "..", "migrations"));
   }
 
   async getOrCreateConversation({
@@ -148,6 +145,112 @@ export class PostgresStore {
       RETURNING update_id
     `;
     return rows.length === 1;
+  }
+
+  mapLead(row) {
+    return {
+      id: row.id,
+      submissionId: row.submission_id,
+      submittedAt: row.submitted_at,
+      quote: row.quote_snapshot,
+      reference: `MM-${String(row.id).slice(0, 8).toUpperCase()}`,
+    };
+  }
+
+  async saveCompletedLead({ lead, notificationJobs = [] }) {
+    return this.sql.begin(async (transaction) => {
+      const [created] = await transaction`
+        INSERT INTO sales.budget_leads (
+          id, tenant_slug, submission_id, contact_name, company, email, phone,
+          observations, selected_services, selected_channels, selected_extras,
+          answers, recommended_package_id, quote_snapshot, implementation_cents,
+          monthly_cents, total_ex_vat_cents, currency, pricing_catalog_version,
+          external_costs, page_path, locale
+        ) VALUES (
+          ${lead.id}, ${lead.tenantSlug}, ${lead.submissionId}, ${lead.contact.name},
+          ${lead.contact.company || null}, ${lead.contact.email}, ${lead.contact.phone},
+          ${lead.contact.observations || null}, ${transaction.json(lead.selectedServices)},
+          ${transaction.json(lead.selectedChannels)}, ${transaction.json(lead.selectedExtras)},
+          ${transaction.json(lead.answers)}, ${lead.recommendedPackageId},
+          ${transaction.json(lead.quote)}, ${lead.implementationCents},
+          ${lead.monthlyCents}, ${lead.totalExVatCents}, ${lead.currency},
+          ${lead.catalogVersion}, ${transaction.json(lead.externalCosts)},
+          ${lead.pagePath}, ${lead.locale}
+        )
+        ON CONFLICT (tenant_slug, submission_id) DO NOTHING
+        RETURNING id, submission_id, submitted_at, quote_snapshot
+      `;
+
+      let row = created;
+      if (!row) {
+        [row] = await transaction`
+          SELECT id, submission_id, submitted_at, quote_snapshot
+          FROM sales.budget_leads
+          WHERE tenant_slug = ${lead.tenantSlug}
+            AND submission_id = ${lead.submissionId}
+        `;
+      }
+
+      if (created) {
+        for (const job of notificationJobs) {
+          await transaction`
+            INSERT INTO sales.notification_jobs (
+              id, lead_id, channel, target_key, payload
+            ) VALUES (
+              ${randomUUID()}, ${created.id}, ${job.channel}, ${job.targetKey},
+              ${transaction.json(job.payload)}
+            )
+            ON CONFLICT (lead_id, channel, target_key) DO NOTHING
+          `;
+        }
+      }
+
+      return { ...this.mapLead(row), created: Boolean(created) };
+    });
+  }
+
+  async claimNotificationJobs({ limit = 10 }) {
+    return this.sql`
+      WITH candidates AS (
+        SELECT id
+        FROM sales.notification_jobs
+        WHERE (
+          status IN ('pending', 'retry')
+          AND next_attempt_at <= now()
+        ) OR (
+          status = 'processing'
+          AND locked_at < now() - interval '10 minutes'
+        )
+        ORDER BY next_attempt_at, created_at
+        FOR UPDATE SKIP LOCKED
+        LIMIT ${limit}
+      )
+      UPDATE sales.notification_jobs AS jobs
+      SET status = 'processing', locked_at = now(), attempts = jobs.attempts + 1
+      FROM candidates
+      WHERE jobs.id = candidates.id
+      RETURNING jobs.id, jobs.channel, jobs.target_key, jobs.payload, jobs.attempts
+    `;
+  }
+
+  async markNotificationSent({ id, providerMessageId = "" }) {
+    await this.sql`
+      UPDATE sales.notification_jobs
+      SET status = 'sent', sent_at = now(), locked_at = NULL,
+          provider_message_id = ${providerMessageId || null}, last_error = NULL,
+          payload = '{}'::jsonb
+      WHERE id = ${id}
+    `;
+  }
+
+  async markNotificationFailed({ id, error, dead = false, nextAttemptAt }) {
+    await this.sql`
+      UPDATE sales.notification_jobs
+      SET status = ${dead ? "dead" : "retry"}, locked_at = NULL,
+          last_error = ${String(error || "notification_failed").slice(0, 500)},
+          next_attempt_at = ${nextAttemptAt}
+      WHERE id = ${id}
+    `;
   }
 
   async health() {

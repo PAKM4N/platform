@@ -5,6 +5,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --ignore-scripts
 COPY public ./public
 COPY presupuestos ./presupuestos
+COPY src/project-catalog.js src/project-pricing.js ./src/
 COPY vite.presupuestos.config.js ./vite.presupuestos.config.js
 RUN npx vite build --config vite.presupuestos.config.js
 

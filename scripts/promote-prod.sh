@@ -51,24 +51,86 @@ if docker inspect mercamicro-presupuestos-budget_web-1 >/dev/null 2>&1; then
   previous_budget="$(docker inspect -f '{{.Config.Image}}' mercamicro-presupuestos-budget_web-1)"
 fi
 
+container_env() {
+  docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' mercamicro-presupuestos-api-1 |
+    awk -v prefix="$1=" 'index($0, prefix) == 1 { print substr($0, length(prefix) + 1); exit }'
+}
+
+previous_notifications_enabled="$(container_env LEAD_NOTIFICATIONS_ENABLED)"
+rollback_compose_options=(
+  -p mercamicro-presupuestos
+  -f "$repo_root/deploy/prod/compose.yaml"
+)
+if [[ "$previous_notifications_enabled" == "true" ]]; then
+  previous_lead_email_from="$(container_env LEAD_EMAIL_FROM)"
+  previous_lead_email_to="$(container_env LEAD_EMAIL_TO)"
+  previous_lead_smtp_host="$(container_env LEAD_SMTP_HOST)"
+  previous_lead_smtp_port="$(container_env LEAD_SMTP_PORT)"
+  previous_lead_smtp_secure="$(container_env LEAD_SMTP_SECURE)"
+  previous_lead_smtp_require_tls="$(container_env LEAD_SMTP_REQUIRE_TLS)"
+  [[ -n "$previous_lead_email_from" && -n "$previous_lead_email_to" && -n "$previous_lead_smtp_host" ]] || {
+    echo "No se puede preparar el rollback de la configuración SMTP activa." >&2
+    exit 1
+  }
+  rollback_compose_options+=( -f "$repo_root/deploy/prod/compose.notifications.yaml" )
+fi
+
 cp /srv/platform/config/caddy/Caddyfile "$prod_release_dir/Caddyfile.before"
 printf '%s\n' \
   "PREVIOUS_DEMO_WEB_IMAGE=${previous_web}" \
   "PREVIOUS_DEMO_API_IMAGE=${previous_api}" \
-  "PREVIOUS_BUDGET_WEB_IMAGE=${previous_budget}" > "$prod_release_dir/previous.env"
+  "PREVIOUS_BUDGET_WEB_IMAGE=${previous_budget}" \
+  "PREVIOUS_LEAD_NOTIFICATIONS_ENABLED=${previous_notifications_enabled:-false}" > "$prod_release_dir/previous.env"
 chmod 600 "$prod_release_dir/previous.env"
 
 docker run --rm -v "$repo_root/deploy/prod/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2.11.4-alpine caddy validate --config /etc/caddy/Caddyfile
 
 export DEMO_WEB_IMAGE DEMO_API_IMAGE BUDGET_WEB_IMAGE
-docker compose -p mercamicro-presupuestos -f "$repo_root/deploy/prod/compose.yaml" up -d --no-build --wait
+compose_options=(
+  -p mercamicro-presupuestos
+  -f "$repo_root/deploy/prod/compose.yaml"
+)
+if [[ "${ENABLE_LEAD_NOTIFICATIONS:-NO}" == "YES" ]]; then
+  compose_options+=( -f "$repo_root/deploy/prod/compose.notifications.yaml" )
+fi
 
-apply_caddy_file "$repo_root/deploy/prod/Caddyfile"
+restore_previous_services() {
+  export DEMO_WEB_IMAGE="$previous_web" DEMO_API_IMAGE="$previous_api"
+  if [[ "$previous_notifications_enabled" == "true" ]]; then
+    export LEAD_EMAIL_FROM="$previous_lead_email_from"
+    export LEAD_EMAIL_TO="$previous_lead_email_to"
+    export LEAD_SMTP_HOST="$previous_lead_smtp_host"
+    export LEAD_SMTP_PORT="${previous_lead_smtp_port:-587}"
+    export LEAD_SMTP_SECURE="${previous_lead_smtp_secure:-false}"
+    export LEAD_SMTP_REQUIRE_TLS="${previous_lead_smtp_require_tls:-true}"
+  fi
+  if [[ -n "$previous_budget" ]]; then
+    export BUDGET_WEB_IMAGE="$previous_budget"
+    docker compose "${rollback_compose_options[@]}" up -d --no-build --wait
+  else
+    docker compose "${rollback_compose_options[@]}" stop budget_web || true
+    docker compose "${rollback_compose_options[@]}" rm -f budget_web || true
+    docker compose "${rollback_compose_options[@]}" up -d --no-build --wait api web
+  fi
+}
+
+if ! docker compose "${compose_options[@]}" up -d --no-build --wait; then
+  echo "Falló la activación de la candidata. Restaurando las imágenes anteriores." >&2
+  restore_previous_services || true
+  exit 1
+fi
+
+if ! apply_caddy_file "$repo_root/deploy/prod/Caddyfile"; then
+  echo "Falló la activación de Caddy. Restaurando configuración e imágenes." >&2
+  apply_caddy_file "$prod_release_dir/Caddyfile.before" || true
+  restore_previous_services || true
+  exit 1
+fi
 
 tls_ready=false
 for attempt in {1..24}; do
-  if curl --fail --silent --show-error --max-time 10 "https://demos.mercamicro.es/health" >/dev/null 2>&1 && \
-     curl --fail --silent --show-error --max-time 10 "https://presupuestos.mercamicro.es/" | grep -q "Presupuesta tu chatbot"; then
+  if curl --fail --silent --show-error --max-time 10 "https://demo.mercamicro.es/health" >/dev/null 2>&1 && \
+     curl --fail --silent --show-error --max-time 10 "https://presupuestos.mercamicro.es/" | grep -q "Webs y automatizaciones a medida"; then
     tls_ready=true
     break
   fi
@@ -76,22 +138,23 @@ for attempt in {1..24}; do
   sleep 5
 done
 
+project_lead_route_responds() {
+  local status
+  status="$(curl --silent --show-error --max-time 10 --output /dev/null --write-out '%{http_code}' \
+    --header 'Content-Type: application/json' \
+    --request POST \
+    --data '{"submissionId":"00000000-0000-4000-8000-000000000001","answers":{"needs":["support"],"channel":"web","interaction":"rules","extras":[],"hosting":"own","websiteScope":"existing"},"contact":{"name":"Smoke Test","email":"smoke@example.invalid","phone":"+34000000","website":"bot"}}' \
+    "https://presupuestos.mercamicro.es/api/project-leads" || true)"
+  [[ "$status" == "400" ]]
+}
+
 if [[ "$tls_ready" != true ]] || \
-   ! "$repo_root/scripts/smoke-test.sh" "https://demos.mercamicro.es" || \
-   ! curl --fail --silent --show-error "https://presupuestos.mercamicro.es/" | grep -q "Presupuesta tu chatbot"; then
+   ! "$repo_root/scripts/smoke-test.sh" "https://demo.mercamicro.es" || \
+   ! curl --fail --silent --show-error "https://presupuestos.mercamicro.es/" | grep -q "Webs y automatizaciones a medida" || \
+   ! project_lead_route_responds; then
   echo "Falló el smoke test. Restaurando Caddy y las imágenes anteriores." >&2
   apply_caddy_file "$prod_release_dir/Caddyfile.before" || true
-
-  export DEMO_WEB_IMAGE="$previous_web" DEMO_API_IMAGE="$previous_api"
-  if [[ -n "$previous_budget" ]]; then
-    export BUDGET_WEB_IMAGE="$previous_budget"
-    docker compose -p mercamicro-presupuestos -f "$repo_root/deploy/prod/compose.yaml" up -d --no-build --wait || true
-  else
-    docker compose -p mercamicro-presupuestos -f "$repo_root/deploy/prod/compose.yaml" stop budget_web || true
-    docker compose -p mercamicro-presupuestos -f "$repo_root/deploy/prod/compose.yaml" rm -f budget_web || true
-    export BUDGET_WEB_IMAGE="$BUDGET_WEB_IMAGE"
-    docker compose -p mercamicro-presupuestos -f "$repo_root/deploy/prod/compose.yaml" up -d --no-build --wait api web || true
-  fi
+  restore_previous_services || true
   exit 1
 fi
 

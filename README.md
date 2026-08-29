@@ -1,32 +1,28 @@
-# Mercamicro — demo sectorial
+# Mercamicro — presupuestos y demos de automatización
 
-Aplicación React con simuladores de presupuestos y reservas para siete sectores,
-acompañada por un chatbot web guiado y operativo:
-
-- alquiler de vehículos;
-- alquiler de bicicletas;
-- reservas de taller;
-- mudanzas;
-- limpieza;
-- pintura;
-- reformas de viviendas.
+Plataforma con un configurador comercial y una biblioteca de automatizaciones
+interactivas. Las 18 demos de procesos reutilizan un único motor declarativo y
+conviven con los siete simuladores sectoriales detallados ya existentes.
 
 El repositorio contiene dos webs relacionadas:
 
-- `presupuestos.mercamicro.es`: web comercial con estimador conversacional para
-  proyectos de chatbot;
-- `demos.mercamicro.es`: demostraciones sectoriales, formularios y chatbot
-  operativo.
+- `presupuestos.mercamicro.es`: web comercial para configurar webs, chatbots y
+  automatizaciones según necesidades reales;
+- `demo.mercamicro.es`: biblioteca de 18 recorridos configurables, siete
+  simuladores con cálculo detallado y chatbot sectorial operativo.
 
-`demo.mercamicro.es` queda reservado como posible alias cuando exista también
-su registro DNS.
+`demos.mercamicro.es` puede mantenerse como alias de compatibilidad, pero los
+enlaces públicos usan el dominio singular.
 
-Cada opción dispone de una ruta propia, un formulario específico y un cálculo
-orientativo ejecutado íntegramente en el navegador. El asistente recoge cinco
-variables clave, completa las restantes con los valores estándar de la demo y
-devuelve una horquilla calculada por las mismas reglas. La Web utiliza el servicio
-real; WhatsApp y Telegram se muestran como integraciones opcionales. El conector
-de Telegram queda preparado en el repositorio, pero desactivado en el despliegue.
+El configurador comercial no expone una tabla ni obliga a escoger paquetes:
+pregunta por objetivos, funcionamiento, canales, extras, web y alojamiento. El
+catálogo y el cálculo están centralizados, el resumen es editable y la API
+recalcula siempre el importe antes de guardar el lead. Todos los importes se
+presentan sin IVA y separan implantación, cuota y consumos externos.
+
+No se carga analítica, publicidad ni tracking. El configurador conserva durante
+la sesión únicamente selecciones no personales; nombre, email, teléfono y
+observaciones solo se envían al terminar.
 
 ## Desarrollo
 
@@ -60,13 +56,12 @@ volúmenes ni secretos con producción.
 
 DEV expone por el túnel dos puertos:
 
-- `18080`: demos sectoriales y API;
+- `18080`: biblioteca de demos, simuladores sectoriales y API;
 - `18081`: web comercial de presupuestos.
 
-Desde la ventana Remote SSH, abre el panel `Puertos`, reenvía el puerto `18080`
-y visita `http://127.0.0.1:18080` en el navegador del PC. El tráfico viaja por
-el túnel SSH existente y el puerto HTTP no queda expuesto en la LAN ni en
-Internet.
+Desde la ventana Remote SSH, abre el panel `Puertos`, reenvía `18080` y `18081`
+y visita ambas direcciones en el navegador del PC. El tráfico viaja por el túnel
+SSH existente y los puertos HTTP no quedan expuestos en la LAN ni en Internet.
 
 `scripts/validate-isolation.sh` rechaza referencias conocidas de producción
 antes de cualquier despliegue DEV. Un working tree modificado recibe una
@@ -128,6 +123,11 @@ que adaptar también la base de las rutas y el `RewriteBase` del `.htaccess`.
 
 ## Rutas
 
+Las rutas configurables siguen el patrón `/demos/<slug>` y se generan desde
+`src/demo-catalog.js`; entre ellas están `/demos/reservas`,
+`/demos/consulta-stock`, `/demos/reserva-restaurante` y
+`/demos/gestion-incidencias`. Se mantienen además las siete rutas históricas:
+
 - `/alquiler-de-vehiculos`
 - `/alquiler-de-bicicletas`
 - `/reservas-de-taller`
@@ -145,37 +145,56 @@ npm run preview -- --port 4173
 npm run check:visual
 ```
 
+La web comercial se compila y comprueba por separado:
+
+```bash
+npm run build:presupuestos
+VISUAL_CHECK_URL=http://127.0.0.1:18081 npm run check:visual:presupuestos
+```
+
 ## Estructura
 
-- `src/RouterApp.jsx`: resolución de rutas estáticas.
-- `src/HomeExperience.jsx`: portada y selector de sectores.
+- `src/project-catalog.js`: catálogo comercial único con productos e importes.
+- `src/project-pricing.js`: normalización, recomendación y cálculo puro.
+- `presupuestos/src/ProjectConfigurator.jsx`: flujo comercial y revisión final.
+- `src/demo-catalog.js`: configuración declarativa de las 18 demos.
+- `src/demo-flow-engine.js`: navegación, validación, edición y resumen compartidos.
+- `src/GenericDemoExperience.jsx`: interfaz común de los recorridos configurables.
+- `src/RouterApp.jsx`: resolución de rutas configurables y sectoriales.
+- `src/HomeExperience.jsx`: portada, biblioteca y selector sectorial.
 - `src/SectorExperience.jsx`: experiencia individual y chat sectorial.
 - `src/App.jsx`: formulario y resultado compartidos.
 - `src/service-models.js`: campos, reglas y cálculos de cada sector.
+- `server/project-leads.js`: validación y captación de solicitudes completadas.
+- `server/notifications/`: cola y adaptador SMTP desacoplado.
+- `server/migrations/`: esquema versionado de conversaciones y leads.
 - `public/.htaccess`: compatibilidad con rutas SPA en Apache/Dinahosting.
 - `public/sectors/`: imágenes editoriales.
 
-Los formularios de los simuladores siguen calculándose localmente y no envían
-los datos de contacto. El chatbot sí registra las conversaciones y estimaciones
-cuando se ejecuta en producción con PostgreSQL; por eso su interfaz indica que
-no deben introducirse datos personales o confidenciales durante la demo.
+Las 18 demos nuevas y los formularios de los simuladores se resuelven localmente
+y no envían respuestas. El chatbot sectorial sí registra conversaciones y
+estimaciones cuando usa PostgreSQL; por eso indica que no deben introducirse
+datos personales o confidenciales.
 
 ## Despliegue en la plataforma Mercamicro
 
-`deploy/compose.yaml` crea dos contenedores sin publicar puertos en el host:
+`deploy/prod/compose.yaml` ejecuta tres servicios sin publicar sus puertos en el
+host:
 
-- `mercamicro-presupuestos-web`, con la web estática;
-- `mercamicro-presupuestos-api`, conectado a PostgreSQL por la red interna.
+- `web`, con la biblioteca de demos;
+- `budget_web`, con la web comercial;
+- `api`, conectado a PostgreSQL por la red interna.
 
-Ambos se conectan a las redes externas `platform-edge` y `platform-backend` ya
-creadas en `webserver01`. El bloque de Caddy está en
-`deploy/presupuestos.Caddyfile`. Telegram se activa con el fichero adicional
-`deploy/compose.telegram.yaml`, una vez creados sus dos secretos fuera del
-repositorio.
+Los servicios se conectan a las redes externas `platform-edge` y
+`platform-backend` ya
+creadas en `webserver01`. Las rutas de ambos dominios están en
+`deploy/prod/Caddyfile`. El email de leads se activa exclusivamente mediante el
+overlay y los secretos descritos en `docs/lead-notifications.md`; el stack base
+permanece desactivado hasta disponer de remitente, destinatario y SMTP.
 
-El flujo seguro de publicación es: levantar los contenedores, conectarlos primero
-a `ingress.chatbots.mercamicro.es` con `deploy/ingress.Caddyfile`, validar Web y
-API por HTTPS y solo entonces cambiar el DNS de `presupuestos.mercamicro.es`.
+La publicación normal sigue el flujo de candidata: construir una vez, validar
+las mismas imágenes en DEV y promocionar únicamente con confirmación explícita.
+La configuración activa nunca se edita directamente.
 
 ## Publicación estática heredada en Dinahosting
 

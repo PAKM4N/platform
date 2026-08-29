@@ -2,8 +2,10 @@ import { useEffect, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import HomeExperience from "./HomeExperience";
 import SectorExperience from "./SectorExperience";
+import GenericDemoExperience from "./GenericDemoExperience";
 import ChatWidget from "./ChatWidget";
 import { Link } from "./router";
+import { DEMOS_BY_SLUG } from "./demo-catalog";
 import { SERVICES_BY_SLUG } from "./service-models";
 
 const defaultDescription =
@@ -26,12 +28,14 @@ function usePathname() {
   return pathname;
 }
 
-function updateMetadata(service) {
-  document.title = service
-    ? `${service.name} — Mercamicro`
-    : "Mercamicro — Demos sectoriales";
+function updateMetadata({ service, demo, pathname }) {
+  const activeExperience = demo || service;
+  document.title = activeExperience
+    ? `${activeExperience.name} — Demo Mercamicro`
+    : "Mercamicro — Demos de automatización";
 
-  const description = service?.heroLead || defaultDescription;
+  const description =
+    demo?.description || service?.heroLead || defaultDescription;
   let meta = document.querySelector('meta[name="description"]');
   if (!meta) {
     meta = document.createElement("meta");
@@ -39,6 +43,17 @@ function updateMetadata(service) {
     document.head.append(meta);
   }
   meta.setAttribute("content", description);
+
+  let canonical = document.querySelector('link[rel="canonical"]');
+  if (!canonical) {
+    canonical = document.createElement("link");
+    canonical.setAttribute("rel", "canonical");
+    document.head.append(canonical);
+  }
+  canonical.setAttribute(
+    "href",
+    `https://demo.mercamicro.es${pathname === "/demos" ? "/" : pathname}`,
+  );
 }
 
 function NotFound() {
@@ -60,15 +75,23 @@ function NotFound() {
 
 export default function RouterApp() {
   const pathname = usePathname();
-  const slug = pathname.split("/").filter(Boolean)[0];
-  const service = slug ? SERVICES_BY_SLUG[slug] : null;
+  const segments = pathname.split("/").filter(Boolean);
+  const slug = segments[0];
+  const service = segments.length === 1 && slug ? SERVICES_BY_SLUG[slug] : null;
+  const demo =
+    segments.length === 2 && segments[0] === "demos"
+      ? DEMOS_BY_SLUG[segments[1]]
+      : null;
 
   useEffect(() => {
-    updateMetadata(service);
-  }, [pathname, service]);
+    updateMetadata({ service, demo, pathname });
+  }, [pathname, service, demo]);
 
   let page = <NotFound />;
-  if (pathname === "/") page = <HomeExperience />;
+  if (pathname === "/" || pathname === "/demos") page = <HomeExperience />;
+  else if (demo) {
+    page = <GenericDemoExperience demo={demo} key={demo.id} />;
+  }
   else if (service && pathname === `/${service.slug}`) {
     page = <SectorExperience serviceId={service.id} />;
   }
@@ -76,7 +99,7 @@ export default function RouterApp() {
   return (
     <>
       {page}
-      <ChatWidget pathname={pathname} />
+      {!demo && <ChatWidget pathname={pathname} />}
     </>
   );
 }

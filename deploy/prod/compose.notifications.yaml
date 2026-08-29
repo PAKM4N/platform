@@ -1,0 +1,23 @@
+services:
+  api:
+    environment:
+      LEAD_NOTIFICATIONS_ENABLED: "true"
+      LEAD_NOTIFICATION_CHANNELS: email
+      LEAD_NOTIFICATION_TARGET_KEY: sales
+      LEAD_EMAIL_FROM: ${LEAD_EMAIL_FROM:?Define LEAD_EMAIL_FROM}
+      LEAD_EMAIL_TO: ${LEAD_EMAIL_TO:?Define LEAD_EMAIL_TO}
+      LEAD_SMTP_HOST: ${LEAD_SMTP_HOST:?Define LEAD_SMTP_HOST}
+      LEAD_SMTP_PORT: "${LEAD_SMTP_PORT:-587}"
+      LEAD_SMTP_SECURE: "${LEAD_SMTP_SECURE:-false}"
+      LEAD_SMTP_REQUIRE_TLS: "${LEAD_SMTP_REQUIRE_TLS:-true}"
+      LEAD_SMTP_USERNAME_FILE: /run/secrets/lead_smtp_username
+      LEAD_SMTP_PASSWORD_FILE: /run/secrets/lead_smtp_password
+    secrets:
+      - lead_smtp_username
+      - lead_smtp_password
+
+secrets:
+  lead_smtp_username:
+    file: /srv/platform/secrets/mercamicro_lead_smtp_username
+  lead_smtp_password:
+    file: /srv/platform/secrets/mercamicro_lead_smtp_password

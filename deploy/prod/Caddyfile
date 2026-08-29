@@ -10,13 +10,24 @@ presupuestos.mercamicro.es {
 	}
 
 	encode zstd gzip
-	reverse_proxy mercamicro-presupuestos-budget-web:8080 {
-		health_uri /health
-		lb_try_duration 3s
+
+	@project_leads path /api/project-leads
+	handle @project_leads {
+		reverse_proxy mercamicro-presupuestos-api:3000 {
+			health_uri /health
+			lb_try_duration 3s
+		}
+	}
+
+	handle {
+		reverse_proxy mercamicro-presupuestos-budget-web:8080 {
+			health_uri /health
+			lb_try_duration 3s
+		}
 	}
 }
 
-demos.mercamicro.es {
+demo.mercamicro.es, demos.mercamicro.es {
 	log {
 		output stdout
 		format json

@@ -11,6 +11,11 @@ export const TENANT = {
     "localhost",
     "127.0.0.1",
   ],
+  projectLeadAllowedHosts: [
+    "presupuestos.mercamicro.es",
+    "localhost",
+    "127.0.0.1",
+  ],
   telegram: {
     enabled: process.env.TELEGRAM_ENABLED === "true",
   },

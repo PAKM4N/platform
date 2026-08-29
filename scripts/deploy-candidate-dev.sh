@@ -17,6 +17,6 @@ test "$(docker image inspect -f '{{.Id}}' "$BUDGET_WEB_IMAGE")" = "$BUDGET_WEB_I
 export DEV_IMAGE_TAG="$RELEASE_TAG"
 docker compose -f "$repo_root/deploy/dev/compose.yaml" up -d --no-build --wait
 "$repo_root/scripts/smoke-test.sh" "http://127.0.0.1:${DEV_HTTP_PORT:-18080}"
-curl --fail --silent --show-error "http://127.0.0.1:${DEV_BUDGET_HTTP_PORT:-18081}/" | grep -q "Presupuesta tu chatbot"
+curl --fail --silent --show-error "http://127.0.0.1:${DEV_BUDGET_HTTP_PORT:-18081}/" | grep -q "Webs y automatizaciones a medida"
 
 echo "DEV ejecuta la candidata ${GIT_SHA} con las imágenes verificadas."

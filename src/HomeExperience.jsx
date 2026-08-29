@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Brand } from "./App";
 import ConversationFan from "./ConversationFan";
+import DemoLibrary from "./DemoLibrary";
 import { SERVICES, SERVICE_ORDER } from "./service-models";
 
 const BOT_LEVELS = [
@@ -50,11 +51,12 @@ function PortalHeader() {
     <header className="portal-header">
       <Brand />
       <nav aria-label="Navegación principal">
-        <a href="#sectores">Sectores</a>
+        <a href="#biblioteca-demos">Demos</a>
+        <a href="#sectores">Simuladores sectoriales</a>
         <a href="#bots">Bots para mensajería</a>
-        <a href="https://presupuestos.mercamicro.es">Pide tu chatbot</a>
+        <a href="https://presupuestos.mercamicro.es">Cuéntanos tu proyecto</a>
       </nav>
-      <a className="portal-header-action" href="#sectores">
+      <a className="portal-header-action" href="#biblioteca-demos">
         Ver demos <ArrowRight size={15} />
       </a>
     </header>
@@ -92,9 +94,9 @@ function SectorPicker() {
   return (
     <section className="sector-picker" id="sectores">
       <div className="sector-picker-status">
-        <span>7 demos disponibles · desliza para explorar</span>
+        <span>{SERVICE_ORDER.length} simuladores detallados · desliza para explorar</span>
         <strong aria-live="polite">
-          {String(activeIndex + 1).padStart(2, "0")} / 07
+          {String(activeIndex + 1).padStart(2, "0")} / {String(SERVICE_ORDER.length).padStart(2, "0")}
         </strong>
       </div>
       <button
@@ -237,15 +239,24 @@ export default function HomeExperience() {
       <PortalHeader />
       <main>
         <section className="portal-hero">
-          <span className="portal-eyebrow">DEMOSTRACIONES POR SECTOR</span>
+          <span className="portal-eyebrow">DEMOSTRACIONES INTERACTIVAS</span>
           <h1>
-            ¿En qué sector
+            ¿Qué quieres
             <br />
-            <em>estás interesado?</em>
+            <em>automatizar?</em>
           </h1>
           <p>
-            Elige una opción para entrar directamente en un simulador adaptado a
-            ese tipo de negocio.
+            Prueba reservas, presupuestos, atención, pedidos y otros recorridos
+            configurados sobre un único motor reutilizable.
+          </p>
+        </section>
+        <DemoLibrary />
+        <section className="legacy-sector-heading" id="simuladores-sectoriales">
+          <span className="portal-eyebrow">SIMULADORES CON CÁLCULO DETALLADO</span>
+          <h2>Siete experiencias sectoriales que conservan toda su profundidad.</h2>
+          <p>
+            Formularios completos, reglas específicas y desglose económico para
+            explorar escenarios más extensos.
           </p>
         </section>
         <SectorPicker />
@@ -255,7 +266,7 @@ export default function HomeExperience() {
         <Brand />
         <span>Soluciones digitales a medida · Demo interactiva</span>
         <a href="https://presupuestos.mercamicro.es">
-          Presupuesta tu chatbot <ArrowRight size={14} />
+          Configura tu proyecto <ArrowRight size={14} />
         </a>
       </footer>
     </div>

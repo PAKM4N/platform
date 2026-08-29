@@ -5,6 +5,7 @@ import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
 import { initialBotState, replyToMessage } from "./engine.js";
+import { registerProjectLeadRoutes } from "./project-leads.js";
 import { TENANT, hostWithoutPort, isAllowedHost } from "./tenant-config.js";
 
 function constantTimeEqual(left = "", right = "") {
@@ -56,7 +57,13 @@ async function telegramSendMessage({ token, chatId, text, quickReplies }) {
   }
 }
 
-export async function buildServer({ store, logger = true, telegram = {} }) {
+export async function buildServer({
+  store,
+  logger = true,
+  telegram = {},
+  projectLeads = {},
+  beforeStoreClose = async () => {},
+}) {
   const app = Fastify({
     logger:
       logger === false
@@ -74,6 +81,11 @@ export async function buildServer({ store, logger = true, telegram = {} }) {
           },
     trustProxy: true,
     bodyLimit: 32 * 1024,
+    ajv: {
+      customOptions: {
+        removeAdditional: false,
+      },
+    },
   });
 
   await app.register(helmet, {
@@ -97,6 +109,7 @@ export async function buildServer({ store, logger = true, telegram = {} }) {
   });
 
   app.addHook("onClose", async () => {
+    await beforeStoreClose();
     await store.close();
   });
 
@@ -104,6 +117,8 @@ export async function buildServer({ store, logger = true, telegram = {} }) {
     const storage = await store.health();
     return reply.send({ ok: storage.ok, storage: storage.mode });
   });
+
+  await registerProjectLeadRoutes(app, { store, ...projectLeads });
 
   app.post(
     "/api/chat/messages",

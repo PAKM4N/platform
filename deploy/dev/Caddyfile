@@ -1,25 +1,30 @@
 {
-    auto_https off
-    admin off
+	auto_https off
+	admin off
 }
 
 :8080 {
-    respond /health "ok" 200
+	respond /health "ok" 200
 
-    @api path /api/chat/* /api/telegram/*
-    handle @api {
-        reverse_proxy api:3000
-    }
+	@api path /api/chat/* /api/telegram/*
+	handle @api {
+		reverse_proxy api:3000
+	}
 
-    handle {
-        reverse_proxy web:8080
-    }
+	handle {
+		reverse_proxy web:8080
+	}
 }
 
 :8081 {
-    respond /health "ok" 200
+	respond /health "ok" 200
 
-    handle {
-        reverse_proxy budget_web:8080
-    }
+	@project_leads path /api/project-leads
+	handle @project_leads {
+		reverse_proxy api:3000
+	}
+
+	handle {
+		reverse_proxy budget_web:8080
+	}
 }

@@ -2,8 +2,13 @@
 .github
 .openai
 .vscode
+.env
+.env.*
+.visual-check
+**/secrets/
 dist
+dist-presupuestos
 node_modules
 npm-debug.log*
 server/**/*.test.js
-scripts/visual-check.mjs
+scripts/visual-check*.mjs
