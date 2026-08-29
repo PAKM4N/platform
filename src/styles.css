@@ -3821,18 +3821,26 @@ footer {
 }
 
 .sector-choice-track {
+  --sector-track-gutter: max(52px, calc((100vw - 1480px) / 2));
   display: flex;
   gap: 18px;
   overflow-x: auto;
-  padding: 18px max(52px, calc((100vw - 1480px) / 2));
+  padding: 18px var(--sector-track-gutter);
   scroll-behavior: smooth;
-  scroll-padding-inline: 52px;
+  scroll-padding-inline: var(--sector-track-gutter);
   scroll-snap-type: x mandatory;
   scrollbar-width: none;
 }
 
 .sector-choice-track::-webkit-scrollbar {
   display: none;
+}
+
+@media (min-width: 821px) {
+  .sector-choice-track {
+    scroll-behavior: auto;
+    scroll-snap-type: none;
+  }
 }
 
 .sector-choice {

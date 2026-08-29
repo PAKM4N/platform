@@ -33,6 +33,34 @@ if ((await page.locator(".demo-library-card").count()) !== 18) {
 if ((await page.locator(".sector-choice").count()) !== 7) {
   throw new Error("No se conservaron los siete simuladores sectoriales detallados.");
 }
+await page.waitForFunction(() => {
+  const track = document.querySelector(".sector-choice-track");
+  return track && track.scrollLeft > 0;
+});
+const carouselBleed = await page.locator(".sector-choice-track").evaluate((track) => {
+  const viewport = track.getBoundingClientRect();
+  const visibleCards = Array.from(track.querySelectorAll(".sector-choice"))
+    .map((card) => card.getBoundingClientRect())
+    .filter((card) => card.right > viewport.left && card.left < viewport.right);
+  const first = visibleCards[0];
+  const last = visibleCards.at(-1);
+
+  return {
+    leftOverflow: viewport.left - first.left,
+    rightOverflow: last.right - viewport.right,
+    leftVisible: first.right - viewport.left,
+    rightVisible: viewport.right - last.left,
+  };
+});
+if (
+  carouselBleed.leftOverflow < 48 ||
+  carouselBleed.rightOverflow < 48 ||
+  Math.abs(carouselBleed.leftVisible - carouselBleed.rightVisible) > 24
+) {
+  throw new Error(
+    `El carrusel no mantiene un desborde simétrico en escritorio: ${JSON.stringify(carouselBleed)}`,
+  );
+}
 await page.getByText("Bot guiado", { exact: true }).waitFor();
 await page.screenshot({
   path: fileURLToPath(new URL("demos-desktop-home.png", outputDir)),

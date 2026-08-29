@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link } from "./router";
 import {
   ArrowLeft,
@@ -68,6 +68,75 @@ function SectorPicker() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [progress, setProgress] = useState(0);
 
+  const syncTrackState = useCallback((track) => {
+    const maxScroll = track.scrollWidth - track.clientWidth;
+    const nextProgress = maxScroll > 0 ? track.scrollLeft / maxScroll : 0;
+    const cards = Array.from(track.querySelectorAll(".sector-choice"));
+    const viewportCenter = track.scrollLeft + track.clientWidth / 2;
+    let closestIndex = 0;
+    let closestDistance = Number.POSITIVE_INFINITY;
+
+    cards.forEach((card, index) => {
+      const cardCenter = card.offsetLeft + card.offsetWidth / 2;
+      const distance = Math.abs(cardCenter - viewportCenter);
+
+      if (distance < closestDistance) {
+        closestIndex = index;
+        closestDistance = distance;
+      }
+    });
+
+    setProgress(Math.min(1, Math.max(0, nextProgress)));
+    setActiveIndex(closestIndex);
+  }, []);
+
+  useLayoutEffect(() => {
+    const track = trackRef.current;
+    if (!track) return undefined;
+
+    let frameId;
+    const balanceDesktopBleed = () => {
+      const cards = Array.from(track.querySelectorAll(".sector-choice"));
+      const firstCard = cards[0];
+
+      if (!firstCard || window.innerWidth <= 820) {
+        track.scrollLeft = 0;
+        syncTrackState(track);
+        return;
+      }
+
+      const styles = window.getComputedStyle(track);
+      const gap = Number.parseFloat(styles.columnGap || styles.gap) || 0;
+      const paddingStart = Number.parseFloat(styles.paddingInlineStart) || 0;
+      const cardWidth = firstCard.offsetWidth;
+      const edgePeek = Math.min(160, Math.max(96, track.clientWidth * 0.1));
+      const idealSpan = track.clientWidth + 2 * Math.max(0, cardWidth - edgePeek);
+      const cardCount = Math.min(
+        cards.length,
+        Math.max(2, Math.round((idealSpan + gap) / (cardWidth + gap))),
+      );
+      const cardsSpan = cardCount * cardWidth + (cardCount - 1) * gap;
+      const maxScroll = track.scrollWidth - track.clientWidth;
+      const targetScroll = paddingStart + (cardsSpan - track.clientWidth) / 2;
+
+      track.scrollLeft = Math.min(maxScroll, Math.max(0, targetScroll));
+      syncTrackState(track);
+    };
+    const scheduleBalance = () => {
+      window.cancelAnimationFrame(frameId);
+      frameId = window.requestAnimationFrame(balanceDesktopBleed);
+    };
+    const resizeObserver = new ResizeObserver(scheduleBalance);
+
+    resizeObserver.observe(track);
+    scheduleBalance();
+
+    return () => {
+      resizeObserver.disconnect();
+      window.cancelAnimationFrame(frameId);
+    };
+  }, [syncTrackState]);
+
   const move = (direction) => {
     trackRef.current?.scrollBy({
       left: direction * Math.min(window.innerWidth * 0.72, 760),
@@ -76,19 +145,7 @@ function SectorPicker() {
   };
 
   const updateProgress = (event) => {
-    const track = event.currentTarget;
-    const maxScroll = track.scrollWidth - track.clientWidth;
-    const nextProgress = maxScroll > 0 ? track.scrollLeft / maxScroll : 0;
-    const firstCard = track.querySelector(".sector-choice");
-    const cardWidth = (firstCard?.offsetWidth || 1) + 18;
-
-    setProgress(Math.min(1, Math.max(0, nextProgress)));
-    setActiveIndex(
-      Math.min(
-        SERVICE_ORDER.length - 1,
-        Math.max(0, Math.round(track.scrollLeft / cardWidth)),
-      ),
-    );
+    syncTrackState(event.currentTarget);
   };
 
   return (
