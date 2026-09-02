@@ -16,6 +16,7 @@ const app = await buildServer({
   projectLeads: {
     notificationChannels: notificationSettings.enabled ? notificationSettings.channels : [],
     notificationTargetKey: notificationSettings.targetKey,
+    notificationCustomerCopy: notificationSettings.customerCopyEnabled,
   },
   beforeStoreClose: async () => notificationDispatcher?.stop(),
 });

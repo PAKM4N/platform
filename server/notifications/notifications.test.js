@@ -67,6 +67,36 @@ test("el adaptador SMTP escapa HTML y bloquea accesos a ficheros y URL", async (
   assert.match(messages[0].text, /Implantación SIN IVA: 1\.580\s?€/);
 });
 
+test("la copia del cliente usa su email y responde al buzón comercial", async () => {
+  const messages = [];
+  const notifier = createSmtpNotifier(
+    {
+      from: "Mercamicro Presupuestos <monitorizacion@mercamicro.es>",
+      recipients: { sales: "presupuestos@mercamicro.es" },
+      customerReplyTo: "presupuestos@mercamicro.es",
+    },
+    {
+      transporter: {
+        sendMail: async (message) => {
+          messages.push(message);
+          return { messageId: "smtp-customer-123" };
+        },
+      },
+    },
+  );
+
+  await notifier.send({ id: "job-customer-1", targetKey: "customer", payload: payload() });
+
+  assert.equal(messages.length, 1);
+  assert.equal(messages[0].to, "ana@example.com");
+  assert.equal(messages[0].replyTo, "presupuestos@mercamicro.es");
+  assert.match(messages[0].subject, /Hemos recibido tu solicitud MM-1234ABCD/);
+  assert.match(messages[0].text, /estimación es orientativa/i);
+  assert.match(messages[0].text, /no constituye una oferta vinculante/i);
+  assert.match(messages[0].html, /Ana &lt;script&gt;alert\(1\)&lt;\/script&gt;/);
+  assert.doesNotMatch(messages[0].html, /Ana <script>/);
+});
+
 test("el dispatcher acepta target_key de Postgres y marca el trabajo como enviado", async () => {
   const calls = [];
   const marked = [];
@@ -171,6 +201,7 @@ test("la configuración SMTP obtiene credenciales solo desde ficheros", async (t
     LEAD_SMTP_HOST: "smtp.example.com",
     LEAD_EMAIL_FROM: "presupuestos@example.com",
     LEAD_EMAIL_TO: "ventas@example.com",
+    LEAD_CUSTOMER_COPY_ENABLED: "true",
     LEAD_SMTP_USERNAME_FILE: usernameFile,
     LEAD_SMTP_PASSWORD_FILE: passwordFile,
   });
@@ -180,6 +211,8 @@ test("la configuración SMTP obtiene credenciales solo desde ficheros", async (t
   assert.equal(settings.smtp.password, "smtp-password");
   assert.equal(settings.smtp.requireTLS, true);
   assert.equal(settings.smtp.secure, false);
+  assert.equal(settings.smtp.customerReplyTo, "ventas@example.com");
+  assert.equal(settings.customerCopyEnabled, true);
 });
 
 test("la configuración activada falla cerrada si SMTP está incompleto", async () => {

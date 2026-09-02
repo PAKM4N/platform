@@ -180,6 +180,34 @@ test("un reintento con el mismo submissionId no duplica lead ni notificación", 
   assert.equal(store.notificationJobs.size, 1);
 });
 
+test("crea avisos independientes para Mercamicro y para el cliente", async (t) => {
+  const store = new MemoryStore();
+  await store.initialize();
+  const app = await buildServer({
+    store,
+    logger: false,
+    projectLeads: {
+      notificationChannels: ["email"],
+      notificationCustomerCopy: true,
+    },
+  });
+  t.after(() => app.close());
+
+  const response = await app.inject({
+    method: "POST",
+    url: "/api/project-leads",
+    headers: { host: "presupuestos.mercamicro.es" },
+    payload: validProjectLead,
+  });
+
+  assert.equal(response.statusCode, 202);
+  assert.equal(store.notificationJobs.size, 2);
+  assert.deepEqual(
+    [...store.notificationJobs.values()].map(({ targetKey }) => targetKey).sort(),
+    ["customer", "sales"],
+  );
+});
+
 test("rechaza propiedades y valores manipulados sin persistir datos", async (t) => {
   const store = new MemoryStore();
   await store.initialize();

@@ -67,7 +67,11 @@ export async function loadLeadNotificationSettings(env = process.env) {
     ),
   };
 
-  if (!enabled) return { enabled, channels, targetKey, dispatcher };
+  if (!enabled) {
+    return { enabled, channels, targetKey, customerCopyEnabled: false, dispatcher };
+  }
+
+  const customerCopyEnabled = booleanValue(env.LEAD_CUSTOMER_COPY_ENABLED, false);
 
   const secure = booleanValue(env.LEAD_SMTP_SECURE, false);
   const smtp = {
@@ -79,6 +83,7 @@ export async function loadLeadNotificationSettings(env = process.env) {
     recipients: {
       [targetKey]: String(env.LEAD_EMAIL_TO || "").trim(),
     },
+    customerReplyTo: String(env.LEAD_EMAIL_TO || "").trim(),
     username: await readSecret(env.LEAD_SMTP_USERNAME_FILE),
     password: await readSecret(env.LEAD_SMTP_PASSWORD_FILE),
   };
@@ -92,5 +97,5 @@ export async function loadLeadNotificationSettings(env = process.env) {
     throw new Error("El usuario y la contraseña SMTP deben configurarse conjuntamente mediante secretos.");
   }
 
-  return { enabled, channels, targetKey, dispatcher, smtp };
+  return { enabled, channels, targetKey, customerCopyEnabled, dispatcher, smtp };
 }

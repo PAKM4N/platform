@@ -87,6 +87,69 @@ function renderMessage(payload) {
   };
 }
 
+function renderCustomerMessage(payload) {
+  const { contact = {}, quote = {} } = payload;
+  const implementation = quote.implementation || {};
+  const monthly = quote.monthly || {};
+  const packageName = [quote.package?.name, quote.package?.variant].filter(Boolean).join(" · ");
+  const rows = [
+    ["Referencia", payload.reference],
+    ["Solución recomendada", packageName || "Por definir"],
+    ["Necesidades", labels(payload.selectedServices, "Por definir")],
+    ["Canales", labels(payload.selectedChannels, "Por definir")],
+    ["Extras", labels(payload.selectedExtras, "Sin extras adicionales")],
+    [
+      "Implantación SIN IVA",
+      `${implementation.from ? "Desde " : ""}${euro.format(implementation.total || 0)}`,
+    ],
+    [
+      "Coste mensual SIN IVA",
+      `${monthly.from ? "Desde " : ""}${euro.format(monthly.total || 0)}`,
+    ],
+    ["Pendiente de valoración", labels(quote.quoteOnlyItems, "Ninguna")],
+    ["Posibles consumos externos", labels(quote.externalConsumptions, "Ninguno")],
+  ];
+  const disclaimer =
+    "Esta estimación es orientativa y no constituye una oferta vinculante. " +
+    "Revisaremos la información antes de confirmar el alcance, los plazos y el precio final.";
+  const text = [
+    `Hola ${contact.name || ""},`,
+    "",
+    "Hemos recibido tu solicitud de presupuesto en Mercamicro.",
+    "",
+    ...rows.map(([label, value]) => `${label}: ${value ?? ""}`),
+    "",
+    disclaimer,
+    "",
+    "Si quieres añadir algún detalle, responde directamente a este correo.",
+    "",
+    "Gracias,",
+    "Mercamicro",
+  ].join("\n");
+  const htmlRows = rows
+    .map(
+      ([label, value]) =>
+        `<tr><th align="left" style="padding:8px;border-bottom:1px solid #ddd;vertical-align:top">${escapeHtml(label)}</th>` +
+        `<td style="padding:8px;border-bottom:1px solid #ddd">${escapeHtml(value ?? "")}</td></tr>`,
+    )
+    .join("");
+
+  return {
+    text,
+    html:
+      '<div style="font-family:Arial,sans-serif;color:#17202a;line-height:1.5">' +
+      `<p>Hola ${escapeHtml(contact.name || "")},</p>` +
+      "<h1>Hemos recibido tu solicitud de presupuesto</h1>" +
+      "<p>Este es el resumen de la estimación que has preparado en Mercamicro.</p>" +
+      '<p><strong>Todos los importes son SIN IVA.</strong></p>' +
+      `<table style="border-collapse:collapse;width:100%;max-width:760px">${htmlRows}</table>` +
+      `<p style="margin-top:24px">${escapeHtml(disclaimer)}</p>` +
+      "<p>Si quieres añadir algún detalle, responde directamente a este correo.</p>" +
+      "<p>Gracias,<br>Mercamicro</p>" +
+      "</div>",
+  };
+}
+
 export function createSmtpNotifier(settings, { transporter } = {}) {
   const transport =
     transporter ||
@@ -111,15 +174,22 @@ export function createSmtpNotifier(settings, { transporter } = {}) {
 
   return {
     async send({ id, targetKey, payload }) {
-      const recipient = settings.recipients[targetKey];
+      const customerCopy = targetKey === "customer";
+      const recipient = customerCopy
+        ? String(payload?.contact?.email || "").trim()
+        : settings.recipients[targetKey];
       if (!recipient) throw new Error("notification_target_not_configured");
-      const content = renderMessage(payload);
+      const content = customerCopy ? renderCustomerMessage(payload) : renderMessage(payload);
       const messageKey = String(id).replace(/[^A-Za-z0-9._-]/g, "").slice(0, 120) || "unknown";
       const result = await transport.sendMail({
         from: settings.from,
         to: recipient,
-        replyTo: { name: payload.contact.name, address: payload.contact.email },
-        subject: `Nueva solicitud de presupuesto ${payload.reference}`,
+        replyTo: customerCopy
+          ? settings.customerReplyTo
+          : { name: payload.contact.name, address: payload.contact.email },
+        subject: customerCopy
+          ? `Hemos recibido tu solicitud ${payload.reference} · Mercamicro`
+          : `Nueva solicitud de presupuesto ${payload.reference}`,
         messageId: `<${messageKey}@notifications.mercamicro.es>`,
         text: content.text,
         html: content.html,
@@ -132,4 +202,4 @@ export function createSmtpNotifier(settings, { transporter } = {}) {
   };
 }
 
-export const smtpNotifierInternals = { escapeHtml, renderMessage };
+export const smtpNotifierInternals = { escapeHtml, renderMessage, renderCustomerMessage };

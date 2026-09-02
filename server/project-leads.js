@@ -136,6 +136,7 @@ export async function registerProjectLeadRoutes(
     store,
     notificationChannels = [],
     notificationTargetKey = "sales",
+    notificationCustomerCopy = false,
   },
 ) {
   const channels = [...new Set(notificationChannels)].filter((channel) =>
@@ -187,13 +188,16 @@ export async function registerProjectLeadRoutes(
         locale: request.body.locale || "es",
       };
       const payload = notificationPayload(lead);
+      const notificationJobs = channels.flatMap((channel) => {
+        const jobs = [{ channel, targetKey: notificationTargetKey, payload }];
+        if (channel === "email" && notificationCustomerCopy) {
+          jobs.push({ channel, targetKey: "customer", payload });
+        }
+        return jobs;
+      });
       const stored = await store.saveCompletedLead({
         lead,
-        notificationJobs: channels.map((channel) => ({
-          channel,
-          targetKey: notificationTargetKey,
-          payload,
-        })),
+        notificationJobs,
       });
 
       return reply.code(202).send({

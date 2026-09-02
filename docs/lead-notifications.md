@@ -19,6 +19,13 @@ La configuración no secreta requerida es:
 - `LEAD_SMTP_PORT`: `587` por defecto.
 - `LEAD_SMTP_SECURE`: `false` para STARTTLS y `true` para TLS implícito.
 - `LEAD_SMTP_REQUIRE_TLS`: `true` por defecto; impide continuar sin STARTTLS.
+- `LEAD_CUSTOMER_COPY_ENABLED`: `true` en el overlay de producción; crea un
+  envío independiente al email validado que dejó el cliente.
+
+El aviso comercial se entrega a `LEAD_EMAIL_TO` y usa el email del cliente como
+`Reply-To`. La copia del cliente incluye su referencia, selección e importes
+orientativos, y responde a `LEAD_EMAIL_TO`. Los dos envíos son trabajos
+independientes: el fallo de uno no bloquea ni duplica el otro.
 
 El servicio exige TLS 1.2 o superior, valida el certificado y bloquea en
 Nodemailer el acceso a ficheros y URL. Si la configuración está activada pero
