@@ -90,7 +90,17 @@ compose_options=(
   -p mercamicro-presupuestos
   -f "$repo_root/deploy/prod/compose.yaml"
 )
-if [[ "${ENABLE_LEAD_NOTIFICATIONS:-NO}" == "YES" ]]; then
+notifications_mode="${ENABLE_LEAD_NOTIFICATIONS:-}"
+if [[ -z "$notifications_mode" && "$previous_notifications_enabled" == "true" ]]; then
+  notifications_mode="YES"
+  export LEAD_EMAIL_FROM="$previous_lead_email_from"
+  export LEAD_EMAIL_TO="$previous_lead_email_to"
+  export LEAD_SMTP_HOST="$previous_lead_smtp_host"
+  export LEAD_SMTP_PORT="${previous_lead_smtp_port:-587}"
+  export LEAD_SMTP_SECURE="${previous_lead_smtp_secure:-false}"
+  export LEAD_SMTP_REQUIRE_TLS="${previous_lead_smtp_require_tls:-true}"
+fi
+if [[ "$notifications_mode" == "YES" ]]; then
   compose_options+=( -f "$repo_root/deploy/prod/compose.notifications.yaml" )
 fi
 

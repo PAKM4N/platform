@@ -32,18 +32,22 @@ siguen disponibles en `sales.budget_leads`. Antes de activar producción debe
 definirse la política comercial de retención de esos leads y su procedimiento
 de purga.
 
-El script de promoción incluye el overlay únicamente cuando se confirma de forma
-explícita con `ENABLE_LEAD_NOTIFICATIONS=YES`. Las variables no secretas deben
-estar exportadas en esa misma sesión:
+La primera activación incluye el overlay cuando se confirma de forma explícita
+con `ENABLE_LEAD_NOTIFICATIONS=YES`. Las variables no secretas deben estar
+exportadas en esa misma sesión:
 
 ```bash
-export LEAD_EMAIL_FROM='Mercamicro <presupuestos@mercamicro.es>'
-export LEAD_EMAIL_TO='destinatario@mercamicro.es'
-export LEAD_SMTP_HOST='smtp.example.net'
+export LEAD_EMAIL_FROM='Mercamicro Presupuestos <monitorizacion@mercamicro.es>'
+export LEAD_EMAIL_TO='presupuestos@mercamicro.es'
+export LEAD_SMTP_HOST='mercamicro-es.correoseguro.dinaserver.com'
+export LEAD_SMTP_PORT='465'
+export LEAD_SMTP_SECURE='true'
 ENABLE_LEAD_NOTIFICATIONS=YES CONFIRM_PRODUCTION=YES \
   ./scripts/promote-prod.sh <SHA-completo>
 ```
 
-El indicador debe conservarse en promociones posteriores mientras se quiera
-mantener el email activo. No se deben probar destinatarios reales desde DEV: los
-adaptadores de los tests son dobles en memoria y no abren conexiones SMTP.
+Las promociones posteriores conservan automáticamente la configuración SMTP que
+esté activa. Para desactivarla deliberadamente se debe promover con
+`ENABLE_LEAD_NOTIFICATIONS=NO`. No se deben probar destinatarios reales desde
+DEV: los adaptadores de los tests son dobles en memoria y no abren conexiones
+SMTP.
