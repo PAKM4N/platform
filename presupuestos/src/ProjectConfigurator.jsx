@@ -4,13 +4,13 @@ import {
   ArrowRight,
   Bot,
   Check,
-  ChevronRight,
   CircleCheck,
   Clock3,
   LoaderCircle,
   Mail,
   Pencil,
   Phone,
+  Printer,
   RefreshCcw,
   ShieldCheck,
   Sparkles,
@@ -94,6 +94,28 @@ const DEFAULT_CONTACT = {
   website: "",
 };
 
+const NEED_CHOICES = NEED_OPTIONS.map((option) => {
+  if (option.id === "availability") return { ...option, label: "Mostrar disponibilidad de productos", description: "Ayudar al cliente a encontrar lo que busca." };
+  if (option.id === "stock") return { ...option, label: "Consultar inventario interno", description: "Facilitar el trabajo del equipo con el stock." };
+  return option;
+});
+
+const EXTRA_DESCRIPTIONS = {
+  stock: "Consultar existencias de productos.",
+  calendar: "Conectar disponibilidad y solicitudes de reserva.",
+  admin: "Gestionar contenidos y solicitudes desde un panel.",
+  pricing: "Calcular importes a partir de las respuestas.",
+  documents: "Preparar documentos con los datos recogidos.",
+  language: "Ofrecer el recorrido en otro idioma.",
+  rag: "Responder a partir de tus documentos.",
+  payments: "Conectar el proceso con un proveedor de pagos.",
+  api: "Conectar una aplicación externa.",
+  crm: "Enviar información a tu herramienta comercial.",
+  erp: "Conectar con tu sistema de gestión empresarial.",
+};
+
+const EXTRA_CHOICES = EXTRA_OPTIONS.map((option) => ({ ...option, description: EXTRA_DESCRIPTIONS[option.id] }));
+
 const HOSTING_CHOICES = HOSTING_OPTIONS.map((option) =>
   option.id === "local-ai"
     ? {
@@ -141,13 +163,15 @@ function loadProgress() {
     const isCurrent =
       saved?.catalogVersion === PROJECT_CATALOG_VERSION &&
       Number.isFinite(saved?.savedAt) &&
+      Date.now() - saved.savedAt >= 0 &&
       Date.now() - saved.savedAt < STORAGE_TTL;
 
     if (isCurrent && saved?.answers && Number.isInteger(saved.step)) {
-      return {
-        answers: normalizeProjectAnswers(saved.answers),
-        step: Math.min(REVIEW_STEP, Math.max(0, saved.step)),
-      };
+      const answers = normalizeProjectAnswers(saved.answers);
+      if (answers.interaction === "form") answers.channel = "web";
+      if (!['ai', 'knowledge', 'actions'].includes(answers.interaction) && answers.hosting === "local-ai") answers.hosting = "managed";
+      if (answers.channel.includes("web") && answers.websiteScope === "none") answers.websiteScope = "existing";
+      return { answers, step: answers.needs.length ? Math.min(REVIEW_STEP, Math.max(0, saved.step)) : 0, restored: answers.needs.length > 0 };
     }
     window.sessionStorage.removeItem(STORAGE_KEY);
   } catch {
@@ -160,7 +184,7 @@ function loadProgress() {
   return { answers: freshAnswers(), step: 0 };
 }
 
-function MultiOptions({ options, selected, locked = [], onToggle, label = "Opciones disponibles" }) {
+function MultiOptions({ options, selected, locked = [], onToggle, label = "Opciones disponibles", knowledgeIncluded = false }) {
   return (
     <div className="configurator-options is-multi" role="group" aria-label={label}>
       {options.map((option) => {
@@ -179,7 +203,7 @@ function MultiOptions({ options, selected, locked = [], onToggle, label = "Opcio
             <span>
               <strong>{option.label}</strong>
               {option.description && <small>{option.description}</small>}
-              {isLocked && <small>Incluido por uno de tus objetivos</small>}
+              {isLocked && <small>{knowledgeIncluded && option.id === "rag" ? "Incluido en la solución de conocimiento" : "Añadido por tus objetivos"}</small>}
             </span>
           </button>
         );
@@ -189,22 +213,36 @@ function MultiOptions({ options, selected, locked = [], onToggle, label = "Opcio
 }
 
 function SingleOptions({ options, selected, onSelect, label = "Selecciona una opción" }) {
+  const handleKeyDown = (event, currentIndex) => {
+    let nextIndex;
+    if (["ArrowRight", "ArrowDown"].includes(event.key)) nextIndex = (currentIndex + 1) % options.length;
+    if (["ArrowLeft", "ArrowUp"].includes(event.key)) nextIndex = (currentIndex + options.length - 1) % options.length;
+    if (event.key === "Home") nextIndex = 0;
+    if (event.key === "End") nextIndex = options.length - 1;
+    if (nextIndex === undefined) return;
+    event.preventDefault();
+    onSelect(options[nextIndex].id);
+    event.currentTarget.parentElement.querySelectorAll('[role="radio"]')[nextIndex]?.focus();
+  };
+
   return (
     <div className="configurator-options" role="radiogroup" aria-label={label}>
-      {options.map((option) => (
+      {options.map((option, index) => (
         <button
           type="button"
           role="radio"
           className={selected === option.id ? "selected" : ""}
           aria-checked={selected === option.id}
+          tabIndex={selected === option.id || (!options.some(({ id }) => id === selected) && index === 0) ? 0 : -1}
           key={option.id}
           onClick={() => onSelect(option.id)}
+          onKeyDown={(event) => handleKeyDown(event, index)}
         >
           <span>
             <strong>{option.label}</strong>
             {option.description && <small>{option.description}</small>}
           </span>
-          <ChevronRight size={18} />
+          <span className="configurator-option-radio" aria-hidden="true">{selected === option.id && <Check size={14} />}</span>
         </button>
       ))}
     </div>
@@ -212,19 +250,23 @@ function SingleOptions({ options, selected, onSelect, label = "Selecciona una op
 }
 
 function QuoteTotals({ quote }) {
+  const hasNewWebsite = ["landing", "complete"].includes(quote.answers.websiteScope);
+  const customProject = quote.package.family === "custom";
   return (
     <div className="quote-totals">
       <div>
-        <span>Implantación</span>
+        <span>{hasNewWebsite ? "Automatización · implantación" : "Implantación"}</span>
         <strong>{quote.implementation.from ? "Desde " : ""}{euro.format(quote.implementation.total)}</strong>
-        <small>Pago único por la puesta en marcha</small>
+        <small>{hasNewWebsite ? "La nueva web se presupuesta aparte" : customProject ? "Punto de partida sujeto a definición del alcance" : "Pago único por la puesta en marcha"}</small>
       </div>
       <div>
-        <span>Coste mensual</span>
-        <strong>{quote.monthly.from ? "Desde " : ""}{quote.monthly.total ? euro.format(quote.monthly.total) : "0 €"}</strong>
+        <span>Alojamiento mensual</span>
+        <strong>{quote.monthly.from ? "Desde " : ""}{quote.monthly.total ? euro.format(quote.monthly.total) + "/mes" : "No incluido"}</strong>
         <small>{quote.monthly.label}</small>
       </div>
-      <p><b>SIN IVA</b><span>Todos los importes de implantación y mantenimiento excluyen el IVA.</span></p>
+      <p><b>SIN IVA</b><span>Los importes son orientativos y excluyen el IVA y los consumos externos.</span></p>
+      {hasNewWebsite && <p className="quote-scope-warning">El importe calculado corresponde a la automatización. Sumaremos la {quote.answers.websiteScope === "landing" ? "landing" : "web completa"} a la propuesta definitiva cuando concretemos su alcance.</p>}
+      {customProject && <p className="quote-scope-warning">Tu proyecto necesita una revisión a medida. Confirmaremos contigo la viabilidad, las integraciones y el presupuesto definitivo.</p>}
     </div>
   );
 }
@@ -249,7 +291,7 @@ function QuoteBreakdown({ quote }) {
         <div className="quote-breakdown-line" key={extra.id}>
           <span>
             <b>{extra.label}</b>
-            <small>{automaticIds.includes(extra.id) ? "Incluido automáticamente por tus objetivos" : "Opción seleccionada"}</small>
+              <small>{automaticIds.includes(extra.id) ? "Añadido al cálculo por tus objetivos" : "Opción seleccionada"}</small>
           </span>
           <strong>{extra.from ? "Desde " : "+"}{euro.format(extra.implementation)}</strong>
         </div>
@@ -292,7 +334,7 @@ function QuoteSummary({ quote, onEdit, compact = false }) {
       <div className="quote-summary-rows">
         <div>
           <span>Objetivos</span>
-          <p>{quote.needs.map(({ label }) => label).join(" · ") || "Por definir"}</p>
+          <p>{quote.needs.map(({ id, label }) => NEED_CHOICES.find((need) => need.id === id)?.label || label).join(" · ") || "Por definir"}</p>
           {onEdit && <button type="button" aria-label="Editar objetivos" onClick={() => onEdit("needs")}><Pencil size={14} /> Editar</button>}
         </div>
         <div>
@@ -312,7 +354,7 @@ function QuoteSummary({ quote, onEdit, compact = false }) {
         </div>
         <div className="is-wide">
           <span>Opciones y extras</span>
-          <p>{quote.extras.map(({ label }) => label).join(" · ") || "Sin extras adicionales"}</p>
+          <p>{[...(quote.answers.interaction === "knowledge" ? ["Base documental incluida en la solución"] : []), ...quote.extras.map(({ label }) => label)].join(" · ") || "Sin extras adicionales"}</p>
           {!!automaticLabels.length && (
             <small>Se han añadido por tus objetivos: {automaticLabels.join(" · ")}. Si cambias esos objetivos, el cálculo también se actualizará.</small>
           )}
@@ -330,7 +372,7 @@ function QuoteSummary({ quote, onEdit, compact = false }) {
 
       <div className="external-costs-note">
         <strong>Posibles consumos externos no incluidos</strong>
-        <p>Se facturan por el proveedor correspondiente y dependen del uso real:</p>
+        <p>Solo si tu solución los utiliza. Dependen del proveedor y del uso real:</p>
         <ul>
           {quote.externalConsumptions.map((consumption) => <li key={consumption}>{consumption}</li>)}
         </ul>
@@ -347,12 +389,23 @@ export default function ProjectConfigurator() {
   const [editingReview, setEditingReview] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
   const [submitted, setSubmitted] = useState(null);
+  const [showRestored, setShowRestored] = useState(Boolean(initial.restored));
+  const reviewOriginal = useRef(null);
   const submissionId = useRef(null);
+  const submissionFingerprint = useRef(null);
+  const submissionPending = useRef(false);
+  const requestController = useRef(null);
   const focusTarget = useRef(null);
   const shouldFocus = useRef(false);
   const quote = useMemo(() => calculateProjectQuote(answers), [answers]);
-  const lockedExtras = useMemo(() => automaticProjectExtraIds(answers.needs), [answers.needs]);
+  const lockedExtras = useMemo(() => [...new Set([
+    ...automaticProjectExtraIds(answers.needs),
+    ...(answers.interaction === "knowledge" ? ["rag"] : []),
+  ])], [answers.needs, answers.interaction]);
+
+  useEffect(() => () => requestController.current?.abort(), []);
 
   useEffect(() => {
     if (submitted) return;
@@ -362,20 +415,20 @@ export default function ProjectConfigurator() {
         JSON.stringify({
           catalogVersion: PROJECT_CATALOG_VERSION,
           savedAt: Date.now(),
-          answers,
-          step,
+          answers: editingReview ? reviewOriginal.current : answers,
+          step: editingReview ? REVIEW_STEP : step,
         }),
       );
     } catch {
       // El progreso temporal es una mejora opcional, no un requisito para continuar.
     }
-  }, [answers, step, submitted]);
+  }, [answers, step, submitted, editingReview]);
 
   useEffect(() => {
     if (!shouldFocus.current) return;
     shouldFocus.current = false;
     focusTarget.current?.focus({ preventScroll: true });
-  }, [step]);
+  }, [step, submitted]);
 
   const toggle = (field, id) => {
     setAnswers((current) => ({
@@ -393,8 +446,12 @@ export default function ProjectConfigurator() {
           ...current,
           interaction: value,
           channel: "web",
+          hosting: current.hosting === "local-ai" ? "managed" : current.hosting,
           websiteScope: current.websiteScope === "none" ? "existing" : current.websiteScope,
         };
+      }
+      if (field === "interaction" && value === "rules" && current.hosting === "local-ai") {
+        return { ...current, interaction: value, hosting: "managed" };
       }
       if (field === "channel" && value.includes("web") && current.websiteScope === "none") {
         return { ...current, channel: value, websiteScope: "existing" };
@@ -410,6 +467,7 @@ export default function ProjectConfigurator() {
     shouldFocus.current = true;
     setStep(target);
     setSubmitError("");
+    setShowRestored(false);
     window.setTimeout(() => {
       const behavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches
         ? "auto"
@@ -419,12 +477,14 @@ export default function ProjectConfigurator() {
   };
 
   const editStep = (stepId) => {
+    reviewOriginal.current = answers;
     setEditingReview(true);
     moveTo(STEP_INDEX[stepId]);
   };
 
   const finishStep = () => {
     if (editingReview) {
+      reviewOriginal.current = null;
       setEditingReview(false);
       moveTo(REVIEW_STEP);
       return;
@@ -436,10 +496,13 @@ export default function ProjectConfigurator() {
     setAnswers(freshAnswers());
     setContact({ ...DEFAULT_CONTACT });
     setEditingReview(false);
+    reviewOriginal.current = null;
     setSubmitted(null);
     setSubmitError("");
+    setFieldErrors({});
     submissionId.current = null;
-    setStep(0);
+    submissionFingerprint.current = null;
+    moveTo(0);
     try {
       window.sessionStorage.removeItem(STORAGE_KEY);
     } catch {
@@ -449,33 +512,73 @@ export default function ProjectConfigurator() {
 
   const submit = async (event) => {
     event.preventDefault();
+    if (submissionPending.current) return;
     setSubmitError("");
+
+    const cleanContact = Object.fromEntries(Object.entries(contact).map(([key, value]) => [key, value.trim()]));
+    const errors = {};
+    if (!cleanContact.name) errors.name = "Escribe tu nombre para que sepamos cómo dirigirnos a ti.";
+    if (!/^[^\s@<>,;:"\\[\]\u0000-\u001F\u007F]+@[^\s@<>,;:"\\[\]\u0000-\u001F\u007F]+\.[^\s@<>,;:"\\[\]\u0000-\u001F\u007F]+$/.test(cleanContact.email)) errors.email = "Escribe un email completo, por ejemplo nombre@empresa.es.";
+    if (cleanContact.phone && (!/^[0-9+(). /-]+$/.test(cleanContact.phone) || !/^\d{6,15}$/.test(cleanContact.phone.replace(/\D/g, "")))) {
+      errors.phone = "Indica entre 6 y 15 dígitos, con prefijo internacional si corresponde.";
+    }
+    setFieldErrors(errors);
+    if (Object.keys(errors).length) {
+      document.getElementById(`project-contact-${Object.keys(errors)[0]}`)?.focus();
+      return;
+    }
+
+    const fingerprint = JSON.stringify({ answers, contact: cleanContact });
+    if (submissionFingerprint.current !== fingerprint) {
+      submissionId.current = createSubmissionId();
+      submissionFingerprint.current = fingerprint;
+    }
+    submissionPending.current = true;
     setSubmitting(true);
-    submissionId.current ||= createSubmissionId();
+    const controller = new AbortController();
+    requestController.current = controller;
+    const timeout = window.setTimeout(() => controller.abort(), 20000);
 
     try {
       const response = await fetch("/api/project-leads", {
         method: "POST",
         headers: { "content-type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           submissionId: submissionId.current,
           answers,
-          contact,
+          contact: cleanContact,
           pagePath: window.location.pathname,
           locale: navigator.language || "es",
         }),
       });
       const result = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(result.error || "submit_failed");
+      if (!response.ok || !result.accepted || !result.reference || !result.quote) {
+        const error = new Error(result.error || "submit_failed");
+        error.status = response.status;
+        throw error;
+      }
+      shouldFocus.current = true;
       setSubmitted(result);
+      document.getElementById("calculadora")?.scrollIntoView({ behavior: "auto", block: "start" });
       try {
         window.sessionStorage.removeItem(STORAGE_KEY);
       } catch {
         // El envío ya se completó; un bloqueo del almacenamiento no cambia el resultado.
       }
-    } catch {
-      setSubmitError("No hemos podido enviar la solicitud. Tus respuestas siguen guardadas para que puedas intentarlo de nuevo.");
+    } catch (error) {
+      const message = error.status === 429
+        ? "Has realizado varios intentos seguidos. Espera un minuto y vuelve a enviar la solicitud."
+        : error.status === 400
+          ? "Revisa los datos de contacto: el nombre, el email y el teléfono, si lo has indicado."
+          : error.name === "AbortError"
+            ? "La respuesta está tardando más de lo esperado. Puedes reintentar el envío; conservaremos la misma referencia si ya se ha recibido."
+            : "No hemos podido confirmar el envío. Tus respuestas siguen en esta pantalla: inténtalo de nuevo o escríbenos a presupuestos@mercamicro.es.";
+      setSubmitError(message);
     } finally {
+      window.clearTimeout(timeout);
+      requestController.current = null;
+      submissionPending.current = false;
       setSubmitting(false);
     }
   };
@@ -487,11 +590,13 @@ export default function ProjectConfigurator() {
           <span className="estimator-avatar"><Bot size={22} /></span>
           <span><strong>Solicitud recibida</strong><small><i /> Presupuesto guardado</small></span>
         </div>
-        <div className="configurator-complete">
+        <div className="configurator-complete" ref={focusTarget} tabIndex="-1">
           <span className="configurator-success"><CircleCheck size={30} /></span>
           <small>REFERENCIA {submitted.reference}</small>
           <h3>Ya tenemos la información necesaria.</h3>
           <p>Revisaremos el alcance y contactaremos contigo utilizando los datos indicados.</p>
+          {submitted.customerCopyQueued && <p className="configurator-email-status"><Mail size={18} /> Hemos programado el envío de una copia a {contact.email.trim()}. Si no aparece, revisa la carpeta de spam.</p>}
+          <button type="button" className="configurator-print" onClick={() => window.print()}><Printer size={17} /> Guardar o imprimir el presupuesto</button>
           <QuoteSummary quote={submitted.quote || quote} compact />
           <button type="button" className="configurator-reset" onClick={reset}>
             <RefreshCcw size={16} /> Preparar otra solicitud
@@ -508,6 +613,15 @@ export default function ProjectConfigurator() {
   const websiteScopeChoices = answers.channel.includes("web")
     ? WEBSITE_SCOPE_OPTIONS.filter(({ id }) => id !== "none")
     : WEBSITE_SCOPE_OPTIONS;
+  const hostingChoices = ["ai", "knowledge", "actions"].includes(answers.interaction)
+    ? HOSTING_CHOICES
+    : HOSTING_CHOICES.filter(({ id }) => id !== "local-ai");
+
+  const updateContact = (field, value) => {
+    setContact((current) => ({ ...current, [field]: value }));
+    setFieldErrors((current) => ({ ...current, [field]: "" }));
+    setSubmitError("");
+  };
 
   return (
     <section className="budget-estimator project-configurator" id="calculadora" aria-label="Presupuestador de proyecto">
@@ -516,9 +630,15 @@ export default function ProjectConfigurator() {
         <span><strong>Presupuestador guiado</strong><small><i /> Cálculo orientativo · sin IVA</small></span>
         <span className="configurator-step-count">{Math.min(step + 1, 7)} / 7</span>
       </div>
-      <div className="estimator-progress" aria-hidden="true">
+      <div className="estimator-progress" role="progressbar" aria-label="Progreso del presupuesto" aria-valuemin={0} aria-valuemax={REVIEW_STEP} aria-valuenow={step} aria-valuetext={`Paso ${step + 1} de 7: ${step < REVIEW_STEP ? STEPS[step].eyebrow : "Revisión y contacto"}`}>
         <i style={{ transform: "scaleX(" + step / REVIEW_STEP + ")" }} />
       </div>
+      <div className="configurator-stage-labels" aria-hidden="true">
+        <span className={step < 3 ? "is-current" : "is-done"}>01 · Tu idea</span>
+        <span className={step >= 3 && step < REVIEW_STEP ? "is-current" : step >= REVIEW_STEP ? "is-done" : ""}>02 · Los detalles</span>
+        <span className={step === REVIEW_STEP ? "is-current" : ""}>03 · Tu presupuesto</span>
+      </div>
+      {showRestored && <p className="configurator-restored" role="status"><Clock3 size={16} /> Hemos recuperado tus selecciones. Puedes seguir donde lo dejaste.</p>}
 
       {step < REVIEW_STEP ? (
         <div className="configurator-body">
@@ -528,6 +648,8 @@ export default function ProjectConfigurator() {
               className="estimator-back"
               onClick={() => {
                 if (editingReview) {
+                  setAnswers(reviewOriginal.current);
+                  reviewOriginal.current = null;
                   setEditingReview(false);
                   moveTo(REVIEW_STEP);
                 } else {
@@ -535,17 +657,17 @@ export default function ProjectConfigurator() {
                 }
               }}
             >
-              <ArrowLeft size={17} /> {editingReview ? "Volver al resumen" : "Respuesta anterior"}
+              <ArrowLeft size={17} /> {editingReview ? "Cancelar cambios" : "Respuesta anterior"}
             </button>
           )}
           <div className="assistant-message" ref={focusTarget} tabIndex="-1">
             <small>Paso {step + 1} · {currentStep.eyebrow}</small>
-            <p>{currentStep.title}</p>
+            <h3>{currentStep.title}</h3>
             <span>{currentStep.hint}</span>
           </div>
 
           {currentStep.id === "needs" && (
-            <MultiOptions label={currentStep.title} options={NEED_OPTIONS} selected={answers.needs} onToggle={(id) => toggle("needs", id)} />
+            <MultiOptions label={currentStep.title} options={NEED_CHOICES} selected={answers.needs} onToggle={(id) => toggle("needs", id)} />
           )}
           {currentStep.id === "interaction" && (
             <SingleOptions label={currentStep.title} options={INTERACTION_OPTIONS} selected={answers.interaction} onSelect={(id) => select("interaction", id)} />
@@ -561,9 +683,10 @@ export default function ProjectConfigurator() {
           {currentStep.id === "extras" && (
             <MultiOptions
               label={currentStep.title}
-              options={EXTRA_OPTIONS}
+              options={EXTRA_CHOICES}
               selected={answers.extras}
               locked={lockedExtras}
+              knowledgeIncluded={answers.interaction === "knowledge"}
               onToggle={(id) => toggle("extras", id)}
             />
           )}
@@ -571,13 +694,15 @@ export default function ProjectConfigurator() {
             <SingleOptions label={currentStep.title} options={websiteScopeChoices} selected={answers.websiteScope} onSelect={(id) => select("websiteScope", id)} />
           )}
           {currentStep.id === "hosting" && (
-            <SingleOptions label={currentStep.title} options={HOSTING_CHOICES} selected={answers.hosting} onSelect={(id) => select("hosting", id)} />
+            <SingleOptions label={currentStep.title} options={hostingChoices} selected={answers.hosting} onSelect={(id) => select("hosting", id)} />
           )}
 
           <div className="configurator-actions">
             <small>
-              {currentStep.id === "extras"
-                ? "Las funciones marcadas como incluidas dependen de tus objetivos."
+              {!canContinue
+                ? "Selecciona al menos una necesidad para continuar."
+                : currentStep.id === "extras"
+                ? "Las funciones añadidas por tus objetivos se incluirán en el desglose. Puedes continuar sin añadir más."
                 : "Podrás modificar esta respuesta en el resumen."}
             </small>
             <button type="button" disabled={!canContinue} onClick={finishStep}>
@@ -590,9 +715,9 @@ export default function ProjectConfigurator() {
           </div>
         </div>
       ) : (
-        <form className="configurator-review" onSubmit={submit}>
+        <form className="configurator-review" onSubmit={submit} noValidate aria-busy={submitting}>
           <div className="configurator-review-heading" ref={focusTarget} tabIndex="-1">
-            <button type="button" className="estimator-back" onClick={() => moveTo(LAST_QUESTION_STEP)}>
+            <button type="button" className="estimator-back" disabled={submitting} onClick={() => moveTo(LAST_QUESTION_STEP)}>
               <ArrowLeft size={17} /> Volver
             </button>
             <small>Paso 7 · Revisión y contacto</small>
@@ -600,54 +725,65 @@ export default function ProjectConfigurator() {
             <p>Puedes editar cualquier bloque. Solo guardaremos la solicitud cuando pulses el botón final.</p>
           </div>
 
-          <QuoteSummary quote={quote} onEdit={editStep} />
+          <QuoteSummary quote={quote} onEdit={submitting ? undefined : editStep} />
 
           <div className="configurator-contact">
             <div className="configurator-contact-heading">
               <span><Mail size={19} /></span>
-              <div><strong>¿Con quién debemos revisar la propuesta?</strong><small>Pedimos estos datos únicamente al terminar el recorrido.</small></div>
+              <div><strong>¿Con quién debemos revisar la propuesta?</strong><small>Sin compromiso. Los campos con * son obligatorios.</small></div>
             </div>
             <div className="configurator-contact-grid">
-              <label htmlFor="project-contact-name">Nombre *</label>
-              <input id="project-contact-name" name="name" required maxLength="120" autoComplete="name" value={contact.name} onChange={(event) => setContact((current) => ({ ...current, name: event.target.value }))} />
-
-              <label htmlFor="project-contact-company">Empresa</label>
-              <input id="project-contact-company" name="company" maxLength="160" autoComplete="organization" value={contact.company} onChange={(event) => setContact((current) => ({ ...current, company: event.target.value }))} />
-
-              <label htmlFor="project-contact-email">Email *</label>
-              <span className="configurator-input-with-icon"><Mail size={16} /><input id="project-contact-email" name="email" required type="email" maxLength="254" autoComplete="email" value={contact.email} onChange={(event) => setContact((current) => ({ ...current, email: event.target.value }))} /></span>
-
-              <label htmlFor="project-contact-phone">Teléfono *</label>
-              <span className="configurator-input-with-icon"><Phone size={16} /><input id="project-contact-phone" name="phone" required type="tel" minLength="6" maxLength="40" autoComplete="tel" value={contact.phone} onChange={(event) => setContact((current) => ({ ...current, phone: event.target.value }))} /></span>
-
-              <label className="is-full" htmlFor="project-contact-observations">Observaciones</label>
-              <textarea className="is-full" id="project-contact-observations" name="observations" rows="4" maxLength="2000" value={contact.observations} onChange={(event) => setContact((current) => ({ ...current, observations: event.target.value }))} placeholder="Contexto, plazos o cualquier requisito que debamos conocer." />
+              <div className="configurator-field">
+                <label htmlFor="project-contact-name">Nombre *</label>
+                <input id="project-contact-name" name="name" required maxLength="120" autoComplete="name" placeholder="Tu nombre" disabled={submitting} aria-invalid={Boolean(fieldErrors.name)} aria-describedby={fieldErrors.name ? "project-name-error" : undefined} value={contact.name} onChange={(event) => updateContact("name", event.target.value)} />
+                {fieldErrors.name && <small className="configurator-field-error" id="project-name-error">{fieldErrors.name}</small>}
+              </div>
+              <div className="configurator-field">
+                <label htmlFor="project-contact-company">Empresa <span>(opcional)</span></label>
+                <input id="project-contact-company" name="company" maxLength="160" autoComplete="organization" placeholder="Nombre de tu negocio" disabled={submitting} value={contact.company} onChange={(event) => updateContact("company", event.target.value)} />
+              </div>
+              <div className="configurator-field">
+                <label htmlFor="project-contact-email">Email *</label>
+                <span className="configurator-input-with-icon"><Mail size={16} /><input id="project-contact-email" name="email" required type="email" maxLength="254" autoComplete="email" autoCapitalize="none" spellCheck="false" placeholder="nombre@empresa.es" disabled={submitting} aria-invalid={Boolean(fieldErrors.email)} aria-describedby={fieldErrors.email ? "project-email-error" : "project-email-hint"} value={contact.email} onChange={(event) => updateContact("email", event.target.value)} /></span>
+                {fieldErrors.email ? <small className="configurator-field-error" id="project-email-error">{fieldErrors.email}</small> : <small id="project-email-hint">Usaremos este email para responder a tu solicitud.</small>}
+              </div>
+              <div className="configurator-field">
+                <label htmlFor="project-contact-phone">Teléfono <span>(opcional)</span></label>
+                <span className="configurator-input-with-icon"><Phone size={16} /><input id="project-contact-phone" name="phone" type="tel" maxLength="40" autoComplete="tel" placeholder="+34 600 000 000" disabled={submitting} aria-invalid={Boolean(fieldErrors.phone)} aria-describedby={fieldErrors.phone ? "project-phone-error" : "project-phone-hint"} value={contact.phone} onChange={(event) => updateContact("phone", event.target.value)} /></span>
+                {fieldErrors.phone ? <small className="configurator-field-error" id="project-phone-error">{fieldErrors.phone}</small> : <small id="project-phone-hint">Si prefieres que podamos llamarte.</small>}
+              </div>
+              <div className="configurator-field is-full">
+                <label htmlFor="project-contact-observations">Observaciones <span>(opcional)</span></label>
+                <textarea id="project-contact-observations" name="observations" rows="4" maxLength="2000" disabled={submitting} value={contact.observations} onChange={(event) => updateContact("observations", event.target.value)} placeholder="Cuéntanos qué hace tu negocio, los plazos o cualquier detalle importante." aria-describedby="project-observations-hint" />
+                <small id="project-observations-hint">{contact.observations.length} / 2000 caracteres. Evita incluir contraseñas u otros datos sensibles.</small>
+              </div>
 
               <label className="configurator-honeypot" aria-hidden="true" htmlFor="project-contact-website">Sitio web</label>
               <input className="configurator-honeypot" id="project-contact-website" name="website" tabIndex="-1" autoComplete="off" value={contact.website} onChange={(event) => setContact((current) => ({ ...current, website: event.target.value }))} />
             </div>
-            <p className="configurator-privacy"><ShieldCheck size={17} /> Utilizaremos estos datos únicamente para revisar y responder a esta solicitud. No usamos cookies de analítica ni publicidad.</p>
+            <p className="configurator-privacy"><ShieldCheck size={17} /> <span>Utilizaremos tus datos para revisar y responder a esta solicitud. El envío no implica ninguna compra. <a href="#datos-solicitud">Cómo tratamos tus datos</a>.</span></p>
             {submitError && <p className="configurator-error" role="alert">{submitError}</p>}
             <div className="configurator-submit-row">
               <span>
-                <small>Implantación sin IVA</small>
+                <small>{["landing", "complete"].includes(answers.websiteScope) ? "Automatización sin IVA" : "Implantación sin IVA"}</small>
                 <strong>{quote.implementation.from ? "Desde " : ""}{euro.format(quote.implementation.total)}</strong>
               </span>
               <span>
-                <small>Cuota mensual sin IVA</small>
-                <strong>{quote.monthly.from ? "Desde " : ""}{euro.format(quote.monthly.total)}/mes</strong>
+                <small>Alojamiento sin IVA</small>
+                <strong>{quote.monthly.from ? "Desde " : ""}{quote.monthly.total ? `${euro.format(quote.monthly.total)}/mes` : "No incluido"}</strong>
               </span>
               <button className="configurator-submit" type="submit" disabled={submitting}>
                 {submitting ? <><LoaderCircle className="is-spinning" size={18} /> Enviando…</> : <>Enviar solicitud <ArrowRight size={18} /></>}
               </button>
             </div>
+            {["landing", "complete"].includes(answers.websiteScope) && <p className="configurator-total-note">La {answers.websiteScope === "landing" ? "landing" : "web completa"} y los consumos externos no están incluidos en estos importes.</p>}
           </div>
         </form>
       )}
 
       {step < REVIEW_STEP && (
         <p className="estimator-note">
-          <Clock3 size={13} /> Tus selecciones se conservan durante dos horas en esta sesión. No guardamos datos de contacto.
+          <Clock3 size={16} /> Tus selecciones se conservan durante dos horas en esta pestaña. Los datos de contacto no se guardan en el navegador.
         </p>
       )}
     </section>

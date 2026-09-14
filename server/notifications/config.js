@@ -42,6 +42,9 @@ export async function loadLeadNotificationSettings(env = process.env) {
   const enabled = booleanValue(env.LEAD_NOTIFICATIONS_ENABLED, false);
   const channels = notificationChannels(env.LEAD_NOTIFICATION_CHANNELS);
   const targetKey = String(env.LEAD_NOTIFICATION_TARGET_KEY || "sales").trim();
+  if (!/^[a-z][a-z0-9_-]{0,63}$/.test(targetKey) || targetKey === "customer") {
+    throw new Error("LEAD_NOTIFICATION_TARGET_KEY no es válido; customer está reservado para la copia del cliente.");
+  }
 
   const dispatcher = {
     pollIntervalMs: integerValue(
@@ -95,6 +98,9 @@ export async function loadLeadNotificationSettings(env = process.env) {
   }
   if (Boolean(smtp.username) !== Boolean(smtp.password)) {
     throw new Error("El usuario y la contraseña SMTP deben configurarse conjuntamente mediante secretos.");
+  }
+  if (!smtp.secure && !smtp.requireTLS) {
+    throw new Error("SMTP requiere TLS implícito o STARTTLS obligatorio.");
   }
 
   return { enabled, channels, targetKey, customerCopyEnabled, dispatcher, smtp };

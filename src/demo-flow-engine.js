@@ -17,13 +17,39 @@ export function createDemoFlowState(demo) {
     answers: {},
     history: [],
     editingFromReview: false,
+    editingSnapshot: null,
+    notice: "",
     error: "",
   };
 }
 
 export function currentDemoQuestion(demo, state) {
   if (state.phase !== FLOW_PHASES.QUESTIONS) return null;
-  return demo.questions[state.currentIndex] || null;
+  return resolveDemoQuestions(demo, state.answers)[state.currentIndex] || null;
+}
+
+function matchesAnswers(when, answers) {
+  return Object.entries(when).every(([id, values]) =>
+    (Array.isArray(values) ? values : [values]).includes(answers[id]),
+  );
+}
+
+export function resolveDemoQuestions(demo, answers = {}) {
+  return demo.questions.map((question) => ({
+    ...question,
+    ...question.variants?.find((variant) => matchesAnswers(variant.when, answers)),
+  }));
+}
+
+export function buildDemoResult(demo, state) {
+  return {
+    ...demo.result,
+    ...demo.result.variants?.find((variant) => matchesAnswers(variant.when, state.answers)),
+  };
+}
+
+export function demoDateToday(now = new Date()) {
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
 
 function normalizeText(value) {
@@ -34,8 +60,8 @@ export function validateDemoAnswer(question, value) {
   if (!question) return { valid: false, error: "La pregunta no existe." };
 
   if (question.type === "multi") {
-    const selections = Array.isArray(value) ? value : [];
-    const minimum = question.minSelections || (question.required ? 1 : 0);
+    const selections = Array.isArray(value) ? [...new Set(value)] : [];
+    const minimum = question.minSelections ?? (question.required ? 1 : 0);
     if (selections.length < minimum) {
       return {
         valid: false,
@@ -50,6 +76,7 @@ export function validateDemoAnswer(question, value) {
   }
 
   if (question.type === "single") {
+    if (!question.required && !value) return { valid: true, error: "" };
     const allowed = new Set(question.options.map((option) => option.value));
     return allowed.has(value)
       ? { valid: true, error: "" }
@@ -57,12 +84,16 @@ export function validateDemoAnswer(question, value) {
   }
 
   if (question.type === "number") {
-    if (value === "" || value === null || value === undefined) {
+    if (!normalizeText(value)) {
+      if (!question.required) return { valid: true, error: "" };
       return { valid: false, error: "Indica una cantidad para continuar." };
     }
     const numericValue = Number(value);
     if (!Number.isFinite(numericValue)) {
       return { valid: false, error: "Introduce una cifra válida." };
+    }
+    if (question.integer && !Number.isInteger(numericValue)) {
+      return { valid: false, error: "Introduce una cantidad entera, sin decimales." };
     }
     if (Number.isFinite(question.min) && numericValue < question.min) {
       return { valid: false, error: `El valor mínimo es ${question.min}.` };
@@ -75,6 +106,7 @@ export function validateDemoAnswer(question, value) {
 
   if (question.type === "date") {
     const normalized = normalizeText(value);
+    if (!question.required && !normalized) return { valid: true, error: "" };
     if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
       return { valid: false, error: "Selecciona una fecha para continuar." };
     }
@@ -84,45 +116,81 @@ export function validateDemoAnswer(question, value) {
       parsed.getUTCFullYear() === year &&
       parsed.getUTCMonth() === month - 1 &&
       parsed.getUTCDate() === day;
-    return isRealDate
-      ? { valid: true, error: "" }
-      : { valid: false, error: "Selecciona una fecha válida." };
+    if (!isRealDate) return { valid: false, error: "Selecciona una fecha válida." };
+    const minimum = question.minDate === "today" ? demoDateToday() : question.minDate;
+    if (minimum && normalized < minimum) {
+      return { valid: false, error: "Elige hoy o una fecha posterior." };
+    }
+    if (question.maxDate && normalized > question.maxDate) {
+      return { valid: false, error: "La fecha está fuera del periodo disponible." };
+    }
+    return { valid: true, error: "" };
   }
 
   const normalized = normalizeText(value);
-  const minimum = question.minLength || (question.required ? 1 : 0);
+  if (!question.required && !normalized) return { valid: true, error: "" };
+  const minimum = question.minLength ?? (question.required ? 1 : 0);
+  if (normalized.length > (question.maxLength ?? 500)) {
+    return { valid: false, error: `Usa un máximo de ${question.maxLength ?? 500} caracteres.` };
+  }
   return normalized.length >= minimum
     ? { valid: true, error: "" }
     : { valid: false, error: "Añade un poco más de información para continuar." };
 }
 
-export function setDemoAnswer(state, question, value) {
+export function setDemoAnswer(state, question, value, demo) {
   if (!question?.id) return state;
+  const answers = { ...state.answers, [question.id]: value };
+  if (demo) {
+    const before = resolveDemoQuestions(demo, state.answers);
+    const after = resolveDemoQuestions(demo, answers);
+    after.forEach((item, index) => {
+      if (item.id !== question.id && before[index].when !== item.when &&
+          (item.type === "text" || !validateDemoAnswer(item, answers[item.id]).valid)) {
+        delete answers[item.id];
+      }
+    });
+  }
   return {
     ...state,
-    answers: { ...state.answers, [question.id]: value },
+    answers,
     error: "",
   };
 }
 
-export function toggleDemoAnswer(state, question, value) {
+export function toggleDemoAnswer(state, question, value, demo) {
   const current = Array.isArray(state.answers[question.id])
     ? state.answers[question.id]
     : [];
   const next = current.includes(value)
     ? current.filter((selection) => selection !== value)
     : [...current, value];
-  return setDemoAnswer(state, question, next);
+  return setDemoAnswer(state, question, next, demo);
 }
 
 export function advanceDemoFlow(demo, state) {
   if (state.phase === FLOW_PHASES.COMPLETE) return state;
 
   if (state.phase === FLOW_PHASES.REVIEW) {
+    const questions = resolveDemoQuestions(demo, state.answers);
+    const invalidIndex = questions.findIndex((question) => !validateDemoAnswer(question, state.answers[question.id]).valid);
+    if (invalidIndex >= 0) {
+      const question = questions[invalidIndex];
+      return {
+        ...state,
+        phase: FLOW_PHASES.QUESTIONS,
+        currentIndex: invalidIndex,
+        editingFromReview: true,
+        editingSnapshot: { ...state.answers },
+        error: validateDemoAnswer(question, state.answers[question.id]).error,
+      };
+    }
     return {
       ...state,
       phase: FLOW_PHASES.COMPLETE,
       editingFromReview: false,
+      editingSnapshot: null,
+      notice: "",
       error: "",
     };
   }
@@ -132,11 +200,23 @@ export function advanceDemoFlow(demo, state) {
   if (!validation.valid) return { ...state, error: validation.error };
 
   if (state.editingFromReview || state.currentIndex >= demo.questions.length - 1) {
+    const questions = resolveDemoQuestions(demo, state.answers);
+    const invalidIndex = questions.findIndex((item) => !validateDemoAnswer(item, state.answers[item.id]).valid);
+    if (invalidIndex >= 0) {
+      return {
+        ...state,
+        currentIndex: invalidIndex,
+        notice: "Tu cambio afecta a esta respuesta. Revísala para completar el resumen.",
+        error: "",
+      };
+    }
     return {
       ...state,
       phase: FLOW_PHASES.REVIEW,
       editingFromReview: false,
-      history: [...state.history, state.currentIndex],
+      editingSnapshot: null,
+      notice: "",
+      history: demo.questions.slice(0, -1).map((_, index) => index),
       error: "",
     };
   }
@@ -144,7 +224,8 @@ export function advanceDemoFlow(demo, state) {
   return {
     ...state,
     currentIndex: state.currentIndex + 1,
-    history: [...state.history, state.currentIndex],
+    history: demo.questions.slice(0, state.currentIndex + 1).map((_, index) => index),
+    notice: "",
     error: "",
   };
 }
@@ -160,6 +241,8 @@ export function goBackDemoFlow(demo, state) {
       phase: FLOW_PHASES.QUESTIONS,
       currentIndex: Math.max(0, demo.questions.length - 1),
       editingFromReview: false,
+      history: demo.questions.slice(0, -1).map((_, index) => index),
+      notice: "",
       error: "",
     };
   }
@@ -168,19 +251,20 @@ export function goBackDemoFlow(demo, state) {
     return {
       ...state,
       phase: FLOW_PHASES.REVIEW,
+      answers: state.editingSnapshot || state.answers,
       editingFromReview: false,
+      editingSnapshot: null,
+      notice: "",
       error: "",
     };
   }
 
-  const history = state.history.slice(0, -1);
-  const previousIndex = state.history.at(-1);
+  const previousIndex = Math.max(0, state.currentIndex - 1);
   return {
     ...state,
-    currentIndex: Number.isInteger(previousIndex)
-      ? previousIndex
-      : Math.max(0, state.currentIndex - 1),
-    history,
+    currentIndex: previousIndex,
+    history: demo.questions.slice(0, previousIndex).map((_, index) => index),
+    notice: "",
     error: "",
   };
 }
@@ -193,6 +277,8 @@ export function editDemoAnswer(demo, state, questionId) {
     phase: FLOW_PHASES.QUESTIONS,
     currentIndex: index,
     editingFromReview: true,
+    editingSnapshot: state.editingSnapshot || { ...state.answers },
+    notice: "",
     error: "",
   };
 }
@@ -210,11 +296,11 @@ export function formatDemoAnswer(question, value) {
     return question.options
       .filter((option) => selected.has(option.value))
       .map((option) => option.label)
-      .join(", ") || "—";
+      .join(", ") || (question.required ? "—" : "Ninguno");
   }
   if (question.type === "number") {
-    if (value === "" || value === undefined) return "—";
-    return `${value}${question.suffix ? ` ${question.suffix}` : ""}`;
+    if (value === "" || value === undefined || value === null) return "—";
+    return `${Number(value).toLocaleString("es-ES")}${question.suffix ? ` ${question.suffix}` : ""}`;
   }
   if (question.type === "date" && value) {
     const [year, month, day] = String(value).split("-");
@@ -224,7 +310,7 @@ export function formatDemoAnswer(question, value) {
 }
 
 export function buildDemoSummary(demo, state) {
-  return demo.questions.map((question) => ({
+  return resolveDemoQuestions(demo, state.answers).map((question) => ({
     id: question.id,
     label: question.label,
     value: formatDemoAnswer(question, state.answers[question.id]),

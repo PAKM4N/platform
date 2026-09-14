@@ -294,26 +294,30 @@ export default function HomeExperience() {
   return (
     <div className="home-experience">
       <PortalHeader />
-      <main>
+      <main id="contenido-principal" tabIndex={-1}>
         <section className="portal-hero">
           <span className="portal-eyebrow">DEMOSTRACIONES INTERACTIVAS</span>
           <h1>
-            ¿Qué quieres
+            ¿Qué quieres{" "}
             <br />
             <em>automatizar?</em>
           </h1>
           <p>
-            Prueba reservas, presupuestos, atención, pedidos y otros recorridos
-            configurados sobre un único motor reutilizable.
+            Ponte en el lugar de tus clientes: pide un presupuesto, reserva una cita
+            o resuelve una consulta. Elige una demo y pruébala a tu ritmo.
           </p>
+          <div className="portal-hero-actions">
+            <a className="button button-dark" href="#biblioteca-demos">Encontrar mi demo <ArrowRight size={18} /></a>
+            <span>Sin registro · sin envíos reales · con datos de ejemplo</span>
+          </div>
         </section>
         <DemoLibrary />
         <section className="legacy-sector-heading" id="simuladores-sectoriales">
           <span className="portal-eyebrow">SIMULADORES CON CÁLCULO DETALLADO</span>
-          <h2>Siete experiencias sectoriales que conservan toda su profundidad.</h2>
+          <h2>Cambia las opciones. Mira cómo cambia el precio.</h2>
           <p>
-            Formularios completos, reglas específicas y desglose económico para
-            explorar escenarios más extensos.
+            Desde una mudanza hasta una reforma: prueba siete simuladores con
+            presupuesto al instante y desglose de cada partida.
           </p>
         </section>
         <SectorPicker />

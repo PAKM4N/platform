@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import test from "node:test";
 import { buildServer } from "./app.js";
 import { MemoryStore } from "./storage/memory-store.js";
@@ -141,6 +142,7 @@ test("guarda un lead completado y recalcula el presupuesto en el servidor", asyn
   assert.equal(body.quote.implementation.total, 2_370);
   assert.equal(body.quote.monthly.total, 69);
   assert.equal(body.quote.taxIncluded, false);
+  assert.equal(body.customerCopyQueued, false);
 
   assert.equal(store.leads.size, 1);
   assert.equal(store.notificationJobs.size, 1);
@@ -172,10 +174,16 @@ test("un reintento con el mismo submissionId no duplica lead ni notificación", 
 
   const first = await app.inject(request);
   const duplicate = await app.inject(request);
+  const uppercaseUuid = await app.inject({
+    ...request,
+    payload: { ...validProjectLead, submissionId: validProjectLead.submissionId.toUpperCase() },
+  });
 
   assert.equal(first.statusCode, 202);
   assert.equal(duplicate.statusCode, 202);
+  assert.equal(uppercaseUuid.statusCode, 202);
   assert.equal(duplicate.json().reference, first.json().reference);
+  assert.equal(uppercaseUuid.json().reference, first.json().reference);
   assert.equal(store.leads.size, 1);
   assert.equal(store.notificationJobs.size, 1);
 });
@@ -201,11 +209,99 @@ test("crea avisos independientes para Mercamicro y para el cliente", async (t) =
   });
 
   assert.equal(response.statusCode, 202);
+  assert.equal(response.json().customerCopyQueued, true);
   assert.equal(store.notificationJobs.size, 2);
   assert.deepEqual(
     [...store.notificationJobs.values()].map(({ targetKey }) => targetKey).sort(),
     ["customer", "sales"],
   );
+});
+
+test("el teléfono es opcional y valida números reales cuando se facilita", async (t) => {
+  const store = new MemoryStore();
+  const app = await buildServer({ store, logger: false });
+  t.after(() => app.close());
+  for (const [phone, expectedStatus] of [
+    [undefined, 202], ["", 202], ["+34 (600) 123-456", 202],
+    ["------", 400], ["12345", 400], ["1234567890123456", 400],
+  ]) {
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/project-leads",
+      headers: { host: "presupuestos.mercamicro.es" },
+      payload: {
+        ...validProjectLead,
+        submissionId: randomUUID(),
+        contact: { ...validProjectLead.contact, phone },
+      },
+    });
+    assert.equal(response.statusCode, expectedStatus, `teléfono: ${phone}`);
+  }
+  assert.equal(store.leads.size, 3);
+});
+
+test("un UUID reutilizado con otros datos no confirma un presupuesto anterior", async (t) => {
+  const store = new MemoryStore();
+  const app = await buildServer({
+    store, logger: false,
+    projectLeads: { notificationChannels: ["email"], notificationCustomerCopy: true },
+  });
+  t.after(() => app.close());
+  const request = {
+    method: "POST", url: "/api/project-leads",
+    headers: { host: "presupuestos.mercamicro.es" }, payload: validProjectLead,
+  };
+  await app.inject(request);
+  for (const payload of [
+    { ...validProjectLead, contact: { ...validProjectLead.contact, email: "otro@example.com" } },
+    { ...validProjectLead, answers: { ...validProjectLead.answers, hosting: "own" } },
+  ]) {
+    const response = await app.inject({ ...request, payload });
+    assert.equal(response.statusCode, 409);
+    assert.deepEqual(response.json(), { error: "submission_conflict" });
+  }
+  assert.equal(store.leads.size, 1);
+  assert.equal(store.notificationJobs.size, 2);
+});
+
+test("el reintento confirma la copia persistida y no la configuración nueva", async (t) => {
+  const store = new MemoryStore();
+  const enabled = await buildServer({
+    store, logger: false,
+    projectLeads: { notificationChannels: ["email"], notificationCustomerCopy: true },
+  });
+  const disabled = await buildServer({ store, logger: false });
+  t.after(async () => { await enabled.close(); await disabled.close(); });
+  const request = {
+    method: "POST", url: "/api/project-leads",
+    headers: { host: "presupuestos.mercamicro.es" }, payload: validProjectLead,
+  };
+  const first = await enabled.inject(request);
+  const duplicate = await disabled.inject(request);
+  assert.equal(first.json().customerCopyQueued, true);
+  assert.equal(duplicate.json().customerCopyQueued, true);
+  assert.equal(duplicate.json().reference, first.json().reference);
+  assert.equal(store.notificationJobs.size, 2);
+  const originalWithoutCopy = { ...request, payload: { ...validProjectLead, submissionId: randomUUID() } };
+  await disabled.inject(originalWithoutCopy);
+  const retryWithCopyEnabled = await enabled.inject(originalWithoutCopy);
+  assert.equal(retryWithCopyEnabled.json().customerCopyQueued, false);
+  assert.equal(store.notificationJobs.size, 2);
+});
+
+test("el email de contacto admite un solo destinatario sin cabeceras", async (t) => {
+  const store = new MemoryStore();
+  const app = await buildServer({ store, logger: false });
+  t.after(() => app.close());
+  for (const email of ["ana@example.com,bob@example.com", '"ana,bob"@example.com', "ana@example.com\r\nBcc: bob@example.com"]) {
+    const response = await app.inject({
+      method: "POST", url: "/api/project-leads",
+      headers: { host: "presupuestos.mercamicro.es" },
+      payload: { ...validProjectLead, contact: { ...validProjectLead.contact, email } },
+    });
+    assert.equal(response.statusCode, 400);
+  }
+  assert.equal(store.leads.size, 0);
 });
 
 test("rechaza propiedades y valores manipulados sin persistir datos", async (t) => {

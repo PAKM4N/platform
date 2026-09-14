@@ -40,8 +40,8 @@ const DEFAULT_WORDS = [
   "siguiente",
 ];
 
-const YES_WORDS = ["si", "sí", "vale", "correcto", "incluido", "incluir"];
-const NO_WORDS = ["no", "sin", "ninguno", "ninguna", "excluir"];
+const YES_WORDS = ["si", "vale", "correcto", "incluido", "incluir", "si incluir", "si incluido"];
+const NO_WORDS = ["no", "sin", "ninguno", "ninguna", "excluir", "no incluir", "no incluido"];
 const START_WORDS = ["hola", "buenas", "empezar", "comenzar", "start"];
 
 const euro = new Intl.NumberFormat("es-ES", {
@@ -159,39 +159,78 @@ function newState(serviceId = null) {
 
 function parseSelect(field, message) {
   const normalized = normalize(message);
-  const numericChoice = Number.parseInt(normalized, 10);
-  if (
-    Number.isInteger(numericChoice) &&
-    numericChoice >= 1 &&
-    numericChoice <= field.options.length
-  ) {
-    return { ok: true, value: field.options[numericChoice - 1][0] };
+  const noMatch = {
+    ok: false,
+    reason: "Elige una sola opción: puedes escribir su nombre o su número de la lista.",
+  };
+  if (!normalized) return noMatch;
+
+  // Keep signs and decimal separators intact when interpreting an option number.
+  const numberedChoice = String(message).trim().match(/^(?:(?:la\s+)?opci[oó]n\s+)?([1-9]\d*)$/i);
+  if (numberedChoice) {
+    const index = Number(numberedChoice[1]) - 1;
+    return field.options[index]
+      ? { ok: true, value: field.options[index][0] }
+      : noMatch;
   }
 
-  const match = field.options.find(([value, label]) => {
-    const normalizedValue = normalize(value);
-    const normalizedLabel = normalize(label);
-    return (
-      normalized === normalizedValue ||
-      normalizedLabel.includes(normalized) ||
-      normalized.includes(normalizedLabel) ||
-      normalized.split(" ").some((word) => word.length > 3 && normalizedLabel.includes(word))
-    );
-  });
+  if (!/[a-z]/.test(normalized)) return noMatch;
 
-  return match
-    ? { ok: true, value: match[0] }
-    : { ok: false, reason: "No he podido asociar esa respuesta a una opción." };
+  const candidate = normalized
+    .replace(/^(?:(?:quiero|prefiero|elijo|escojo)(?: la opcion)?|me gustaria(?: la opcion)?)\s+/, "")
+    .replace(/^(?:la opcion|la|el|un|una)\s+/, "")
+    .replace(/\s+por favor$/, "");
+  const exactMatches = field.options.filter(([value, label]) =>
+    candidate === normalize(value) || candidate === normalize(label),
+  );
+  if (exactMatches.length === 1) return { ok: true, value: exactMatches[0][0] };
+  if (exactMatches.length > 1) return noMatch;
+
+  const meaningfulWord = candidate.split(" ").some((word) =>
+    word.length > 2 && !["del", "los", "las", "una", "con", "sin", "para", "por", "hasta", "tipo", "opcion"].includes(word),
+  );
+  if (!meaningfulWord) return noMatch;
+
+  // A short label fragment is useful, but shared fragments need clarification.
+  const matches = field.options.filter(([, label]) => includesTerm(label, candidate));
+  return matches.length === 1
+    ? { ok: true, value: matches[0][0] }
+    : noMatch;
 }
 
 function parseNumber(field, message) {
-  const match = String(message).replace(",", ".").match(/-?\d+(?:\.\d+)?/);
-  if (!match) {
+  const input = String(message).trim()
+    .replace(/^(?:unos?|unas?|aproximadamente|aprox\.?|alrededor de)\s+/i, "");
+  const match = input.match(/^([+-]?(?:\d+(?:[.,]\d+)?|[.,]\d+))\s*(.*?)$/u);
+  const unitAliases = {
+    "días": ["dia", "dias"],
+    "uds.": ["ud", "uds", "unidad", "unidades"],
+    "est.": ["est", "estancia", "estancias", "habitacion", "habitaciones"],
+    "m²": ["m2", "m²", "metro cuadrado", "metros cuadrados"],
+    "km": ["km", "kilometro", "kilometros"],
+  };
+  const countAliases = {
+    bikeCount: ["bicicleta", "bicicletas", "bici", "bicis"],
+    windows: ["ventana", "ventanas"],
+    rooms: ["estancia", "estancias", "habitacion", "habitaciones"],
+  };
+  const units = [field.suffix || "", ...(unitAliases[field.suffix] || []), ...(countAliases[field.id] || [])];
+  const normalizeUnit = (unit) => String(unit).normalize("NFKC").normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\.$/, "").replace(/\s+/g, " ").trim();
+  const validUnit = match && (!match[2] || units.some((unit) => normalizeUnit(unit) === normalizeUnit(match[2])));
+  if (!match || !validUnit) {
     const unit = field.suffix ? ` en ${field.suffix}` : "";
-    return { ok: false, reason: `Necesito una cifra${unit} para continuar.` };
+    return { ok: false, reason: `Necesito una cifra${unit} para continuar. Escribe un único valor, sin intervalos ni otras cantidades.` };
   }
 
-  const value = Number(match[0]);
+  const value = Number(match[1].replace(",", "."));
+  const allowsDecimals = ["m²", "m³", "m", "km", "km/día", "h"].includes(field.suffix);
+  if (!Number.isFinite(value)) {
+    return { ok: false, reason: "Escribe una cifra válida para continuar." };
+  }
+  if (!allowsDecimals && !Number.isInteger(value)) {
+    return { ok: false, reason: `Necesito un número entero${field.suffix ? ` en ${field.suffix}` : ""}, sin decimales.` };
+  }
   if (Number.isFinite(field.min) && value < field.min) {
     return {
       ok: false,
@@ -208,17 +247,18 @@ function parseNumber(field, message) {
 }
 
 function parseCheckbox(message) {
-  if (YES_WORDS.some((word) => includesTerm(message, word))) {
+  const normalized = normalize(message).replace(/ por favor$/, "").replace(/ gracias$/, "");
+  if (YES_WORDS.includes(normalized)) {
     return { ok: true, value: true };
   }
-  if (NO_WORDS.some((word) => includesTerm(message, word))) {
+  if (NO_WORDS.includes(normalized)) {
     return { ok: true, value: false };
   }
   return { ok: false, reason: "Respóndeme sí o no para continuar." };
 }
 
 function parseField(field, message) {
-  if (DEFAULT_WORDS.some((word) => includesTerm(message, word))) {
+  if (DEFAULT_WORDS.includes(normalize(message))) {
     return { ok: true, value: field.default };
   }
 

@@ -7,7 +7,11 @@ export function navigate(to, { replace = false } = {}) {
   else window.history.pushState({}, "", to);
 
   window.dispatchEvent(new PopStateEvent("popstate"));
-  window.scrollTo({ top: 0, behavior: "auto" });
+  if (window.location.hash) {
+    window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+      document.getElementById(window.location.hash.slice(1))?.scrollIntoView({ behavior: "instant" });
+    }));
+  } else window.scrollTo({ top: 0, behavior: "instant" });
 }
 
 export function Link({ to, onClick, children, target, ...props }) {

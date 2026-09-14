@@ -22,7 +22,7 @@ function SectorRouteHeader({ service }) {
       <Brand href="/" tag={service.eyebrow} />
       <nav aria-label="Navegación del sector">
         <Link to="/">
-          <ArrowLeft size={15} /> Cambiar sector
+          <ArrowLeft size={15} /> Ver demos
         </Link>
         <a href="#calculadora">
           Ir al simulador <ArrowRight size={15} />
@@ -186,7 +186,7 @@ export default function SectorExperience({ serviceId }) {
       }}
     >
       <SectorRouteHeader service={service} />
-      <main>
+      <main id="contenido-principal" tabIndex={-1}>
         <SimulatorCover service={service} />
         <SectorSwitcher service={service} />
         <Estimator

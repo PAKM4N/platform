@@ -27,6 +27,19 @@ El aviso comercial se entrega a `LEAD_EMAIL_TO` y usa el email del cliente como
 orientativos, y responde a `LEAD_EMAIL_TO`. Los dos envíos son trabajos
 independientes: el fallo de uno no bloquea ni duplica el otro.
 
+El teléfono del contacto es opcional. Si se facilita, debe contener entre 6 y 15
+dígitos, con los separadores habituales. El email admite un solo destinatario.
+Los correos muestran las opciones con sus nombres legibles y los comentarios del
+cliente; un importe no disponible se presenta como pendiente de valoración y el
+alojamiento propio como no incluido, sin sugerir una cuota gratuita.
+
+La respuesta de `/api/project-leads` incluye `customerCopyQueued`, calculado a
+partir del outbox persistido. Esto permite distinguir una copia preparada para
+envío de una solicitud guardada en un entorno sin SMTP. No confirma la entrega
+al buzón del cliente. Los reintentos idénticos conservan referencia y trabajos;
+si se reutiliza el mismo `submissionId` con otro contacto o selección, la API
+responde `409 submission_conflict` y el formulario debe generar un nuevo UUID.
+
 El servicio exige TLS 1.2 o superior, valida el certificado y bloquea en
 Nodemailer el acceso a ficheros y URL. Si la configuración está activada pero
 incompleta, la API falla al iniciar en vez de aceptar leads sin poder
@@ -54,7 +67,8 @@ ENABLE_LEAD_NOTIFICATIONS=YES CONFIRM_PRODUCTION=YES \
 ```
 
 Las promociones posteriores conservan automáticamente la configuración SMTP que
-esté activa. Para desactivarla deliberadamente se debe promover con
+esté activa, incluida la preferencia explícita de copia al cliente. El rollback
+restaura también esa preferencia. Para desactivarla deliberadamente se debe promover con
 `ENABLE_LEAD_NOTIFICATIONS=NO`. No se deben probar destinatarios reales desde
 DEV: los adaptadores de los tests son dobles en memoria y no abren conexiones
 SMTP.

@@ -255,7 +255,7 @@ function Sectors({ onSelect }) {
   );
 }
 
-function Progress({ step, service }) {
+function Progress({ step, service, onChange }) {
   const labels = [
     service.steps[1].label,
     service.steps[2].label,
@@ -269,7 +269,11 @@ function Progress({ step, service }) {
         {labels.map((label, index) => {
           const number = index + 1;
           return (
-            <span
+            <button
+              type="button"
+              disabled={number > step}
+              onClick={() => onChange(number)}
+              aria-current={number === step ? "step" : undefined}
               key={label}
               className={
                 number === step ? "active" : number < step ? "done" : ""
@@ -277,7 +281,7 @@ function Progress({ step, service }) {
             >
               <i>{number < step ? <Check size={13} /> : number}</i>
               {label}
-            </span>
+            </button>
           );
         })}
       </div>
@@ -288,7 +292,7 @@ function Progress({ step, service }) {
   );
 }
 
-function Field({ field, value, onChange }) {
+function Field({ field, value, onChange, error }) {
   const inputId = `field-${field.id}`;
 
   if (field.type === "checkbox") {
@@ -323,6 +327,7 @@ function Field({ field, value, onChange }) {
         <textarea
           id={inputId}
           rows="4"
+          maxLength={500}
           value={value}
           placeholder={field.placeholder}
           onChange={(event) => onChange(field.id, event.target.value)}
@@ -336,7 +341,7 @@ function Field({ field, value, onChange }) {
       className={`field ${field.width === "full" ? "full-field" : ""}`}
       htmlFor={inputId}
     >
-      <span>{field.label}</span>
+      <span>{field.label}{field.type === "date" && <small> (opcional)</small>}</span>
       <div className="input-wrap">
         {field.type === "select" ? (
           <>
@@ -359,8 +364,12 @@ function Field({ field, value, onChange }) {
               id={inputId}
               type={field.type}
               value={value}
-              min={field.min}
+              min={field.type === "date" ? new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10) : field.min}
               max={field.max}
+              step={/m²|m³|km/.test(field.suffix || "") ? "any" : 1}
+              maxLength={160}
+              aria-invalid={Boolean(error)}
+              aria-describedby={error ? `${inputId}-error` : undefined}
               placeholder={field.placeholder}
               onChange={(event) => {
                 if (field.type === "number") {
@@ -369,10 +378,7 @@ function Field({ field, value, onChange }) {
                     field.id,
                     nextValue === ""
                       ? ""
-                      : Math.min(
-                          field.max,
-                          Math.max(field.min, Number(nextValue)),
-                        ),
+                      : nextValue,
                   );
                 } else {
                   onChange(field.id, event.target.value);
@@ -383,6 +389,8 @@ function Field({ field, value, onChange }) {
           </>
         )}
       </div>
+      {error && <small className="sector-field-error" id={`${inputId}-error`}>{error}</small>}
+      {field.id === "distance" && <small className="field-help">Distancia aproximada: los códigos postales no calculan la ruta.</small>}
     </label>
   );
 }
@@ -427,13 +435,14 @@ function ContactFields({ contact, onChange }) {
   ];
 
   return (
-    <div className="contact-area">
+    <details className="contact-area">
+      <summary>Probar también los datos de contacto <span>Opcional · usa datos ficticios</span></summary>
       <div className="subheading">
         <div>
           <span className="section-count">B</span>
           <div>
-            <h3>Datos para devolver la valoración</h3>
-            <p>La demo procesa todo localmente: no guarda ni envía información.</p>
+            <h3>Así sería la recogida de contacto</h3>
+            <p>Puedes dejar todo vacío. Estos datos no se envían a nadie.</p>
           </div>
         </div>
         <span className="privacy-note">
@@ -455,6 +464,8 @@ function ContactFields({ contact, onChange }) {
                 <input
                   id={`contact-${field.id}`}
                   type={field.type}
+                  autoComplete="off"
+                  maxLength={160}
                   value={contact[field.id]}
                   placeholder={field.placeholder}
                   onChange={(event) => onChange(field.id, event.target.value)}
@@ -486,12 +497,13 @@ function ContactFields({ contact, onChange }) {
         <textarea
           id="contact-notes"
           rows="4"
+          maxLength={500}
           value={contact.notes}
           placeholder="Restricciones de acceso, flexibilidad de fechas, necesidades especiales…"
           onChange={(event) => onChange("notes", event.target.value)}
         />
       </label>
-    </div>
+    </details>
   );
 }
 
@@ -504,7 +516,7 @@ function EstimateSidebar({ service, estimate, step, answeredFields }) {
           <Icon size={21} />
         </span>
         <div>
-          <small>Modelo activo</small>
+          <small>Tu simulación</small>
           <strong>{service.name}</strong>
         </div>
         <span className="model-code">
@@ -522,7 +534,7 @@ function EstimateSidebar({ service, estimate, step, answeredFields }) {
         <div>
           <Gauge size={15} />
           <span>
-            <small>Variables informadas</small>
+            <small>Opciones del servicio</small>
             <strong>
               {answeredFields} / {service.fields.length}
             </strong>
@@ -531,8 +543,8 @@ function EstimateSidebar({ service, estimate, step, answeredFields }) {
         <div>
           <ListChecks size={15} />
           <span>
-            <small>Reglas disponibles</small>
-            <strong>{service.ruleCount}</strong>
+            <small>Prueba sin registro</small>
+            <strong>Datos de ejemplo</strong>
           </span>
         </div>
       </div>
@@ -561,7 +573,7 @@ function EstimateSidebar({ service, estimate, step, answeredFields }) {
   );
 }
 
-function FinalEstimate({ service, estimate, contact, onRestart, onNotify }) {
+function FinalEstimate({ service, estimate, contact, onRestart, onNotify, headingRef }) {
   const Icon = service.icon;
   const ref = `APR-${service.id.slice(0, 3).toUpperCase()}-${String(
     Math.round(estimate.total),
@@ -575,10 +587,10 @@ function FinalEstimate({ service, estimate, contact, onRestart, onNotify }) {
         </span>
         <div>
           <span className="kicker">Estimación preparada</span>
-          <h2>Una cifra con contexto, no una promesa vacía.</h2>
+          <h2 ref={headingRef} tabIndex={-1}>Este sería tu presupuesto orientativo.</h2>
           <p>
-            El rango recoge las respuestas y reglas activas. Antes de aceptar, el
-            proveedor puede validar los puntos que requieren comprobación.
+            Comprueba el desglose y prueba a cambiar las opciones para comparar.
+            Es una simulación: no has contratado ni reservado ningún servicio.
           </p>
         </div>
       </div>
@@ -613,7 +625,7 @@ function FinalEstimate({ service, estimate, contact, onRestart, onNotify }) {
         </div>
         <div className="ticket-footer">
           <span>
-            <Clock3 size={16} /> {service.timeline}
+            <Clock3 size={16} /> Disponibilidad por confirmar
           </span>
           <span>
             <BadgeCheck size={16} /> Estimación sin compromiso
@@ -622,7 +634,7 @@ function FinalEstimate({ service, estimate, contact, onRestart, onNotify }) {
       </div>
       <div className="result-contact">
         <div>
-          <small>Solicitud preparada para</small>
+          <small>Ejemplo de solicitud</small>
           <strong>{contact.name || "Cliente de demostración"}</strong>
           <span>{contact.email || "email@ejemplo.com"}</span>
         </div>
@@ -645,6 +657,9 @@ function FinalEstimate({ service, estimate, contact, onRestart, onNotify }) {
           Guardar resumen
         </button>
       </div>
+      <a className="sector-project-link" href="https://presupuestos.mercamicro.es/#configurador">
+        Quiero un simulador así para mi negocio <ArrowRight size={18} />
+      </a>
     </div>
   );
 }
@@ -672,6 +687,9 @@ export function Estimator({
     notes: "",
   });
   const [toast, setToast] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({});
+  const headingRef = useRef(null);
+  const previousStep = useRef(step);
   const values = valuesByService[activeId];
   const estimate = useMemo(
     () => calculateEstimate(activeId, values),
@@ -684,9 +702,23 @@ export function Estimator({
 
   useEffect(() => {
     setStep(1);
+    setFieldErrors({});
+    setToast(false);
   }, [activeId]);
 
+  useEffect(() => {
+    if (previousStep.current !== step) headingRef.current?.focus({ preventScroll: true });
+    previousStep.current = step;
+  }, [step]);
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = window.setTimeout(() => setToast(false), 5000);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
+
   const changeValue = (fieldId, value) => {
+    setFieldErrors((current) => ({ ...current, [fieldId]: "" }));
     setValuesByService((current) => ({
       ...current,
       [activeId]: { ...current[activeId], [fieldId]: value },
@@ -694,16 +726,38 @@ export function Estimator({
   };
 
   const goToStep = (nextStep) => {
+    if (nextStep > step) {
+      const errors = {};
+      for (const field of service.fields.filter((item) => item.step === step)) {
+        const value = values[field.id];
+        if (field.type === "number" && (String(value).trim() === "" || !Number.isFinite(Number(value)))) {
+          errors[field.id] = "Introduce una cantidad para calcular el presupuesto.";
+        } else if (field.type === "number" && (Number(value) < field.min || Number(value) > field.max)) {
+          errors[field.id] = `Introduce un valor entre ${field.min} y ${field.max}.`;
+        } else if (field.type === "number" && !/m²|m³|km/.test(field.suffix || "") && !Number.isInteger(Number(value))) {
+          errors[field.id] = "Introduce un número entero.";
+        } else if (field.type === "date" && value && value < new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10)) {
+          errors[field.id] = "Elige hoy o una fecha futura, o deja la fecha vacía.";
+        } else if (/postcode/i.test(field.id) && value && !/^(?:0[1-9]|[1-4][0-9]|5[0-2])[0-9]{3}$/.test(String(value).trim())) {
+          errors[field.id] = "Introduce un código postal español de 5 cifras, o deja el campo vacío.";
+        }
+      }
+      setFieldErrors(errors);
+      if (Object.keys(errors).length) {
+        window.requestAnimationFrame(() => document.getElementById(`field-${Object.keys(errors)[0]}`)?.focus());
+        return;
+      }
+    }
+    setFieldErrors({});
     setStep(Math.min(4, Math.max(1, nextStep)));
     estimatorRef.current?.scrollIntoView({
-      behavior: "smooth",
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",
       block: "start",
     });
   };
 
   const notify = () => {
     setToast(true);
-    window.setTimeout(() => setToast(false), 3800);
   };
 
   const StepIcon =
@@ -731,7 +785,7 @@ export function Estimator({
           </h2>
           <p>
             {standalone
-              ? "Responde solo lo que afecta al servicio. Verás cómo cada decisión modifica el rango y su desglose."
+              ? "Empieza con los valores de ejemplo y ajústalos a tu caso. Verás cómo cambia el precio, sin registro ni datos personales."
               : "Cada recorrido conserva su lógica, pero comparte el mismo sistema de salida y revisión."}
           </p>
         </div>
@@ -741,8 +795,8 @@ export function Estimator({
             <dd>4 etapas</dd>
           </div>
           <div>
-            <dt>Modelo activo</dt>
-            <dd>{service.ruleCount} reglas</dd>
+            <dt>Duración</dt>
+            <dd>2–3 minutos</dd>
           </div>
           <div>
             <dt>Salida</dt>
@@ -778,9 +832,9 @@ export function Estimator({
       )}
       <div className="estimator-shell">
         <div className="estimator-main">
-          <Progress step={step} service={service} />
+          <Progress step={step} service={service} onChange={goToStep} />
           {step < 4 ? (
-            <>
+            <form noValidate onSubmit={(event) => { event.preventDefault(); goToStep(step + 1); }}>
               <div className="form-heading">
                 <span
                   className="form-icon"
@@ -792,7 +846,7 @@ export function Estimator({
                   <span>
                     SECCIÓN A · 0{step} / 03
                   </span>
-                  <h2>{service.steps[step].title}</h2>
+                  <h2 ref={headingRef} tabIndex={-1}>{service.steps[step].title}</h2>
                   <p>{service.steps[step].description}</p>
                 </div>
               </div>
@@ -816,6 +870,7 @@ export function Estimator({
                       field={field}
                       value={values[field.id]}
                       onChange={changeValue}
+                      error={fieldErrors[field.id]}
                     />
                   ))}
               </div>
@@ -843,26 +898,26 @@ export function Estimator({
                 ) : (
                   <span className="form-hint">
                     <Info size={14} />
-                    Puedes cambiar de modelo sin perder los datos.
+                    Valores de ejemplo: puedes cambiarlos todos.
                   </span>
                 )}
                 <button
                   className="button button-primary"
-                  type="button"
-                  onClick={() => goToStep(step + 1)}
+                  type="submit"
                 >
                   {step === 3 ? "Calcular estimación" : "Continuar"}
                   <ArrowRight size={17} />
                 </button>
               </div>
-            </>
+            </form>
           ) : (
             <FinalEstimate
               service={service}
               estimate={estimate}
               contact={contact}
-              onRestart={() => goToStep(3)}
+              onRestart={() => goToStep(1)}
               onNotify={notify}
+              headingRef={headingRef}
             />
           )}
         </div>
@@ -884,7 +939,7 @@ export function Estimator({
         <div>
           <strong>Simulación completada</strong>
           <small>
-            En producción se enviaría la solicitud y se registraría el seguimiento.
+            Has probado el paso de envío. Esta demo no envía correos ni crea reservas.
           </small>
         </div>
       </div>

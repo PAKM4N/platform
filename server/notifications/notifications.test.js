@@ -5,7 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import { loadLeadNotificationSettings } from "./config.js";
 import { createNotificationDispatcher } from "./dispatcher.js";
-import { createSmtpNotifier } from "./smtp-notifier.js";
+import { createSmtpNotifier, smtpNotifierInternals } from "./smtp-notifier.js";
 import { MemoryStore } from "../storage/memory-store.js";
 
 function payload() {
@@ -88,13 +88,78 @@ test("la copia del cliente usa su email y responde al buzón comercial", async (
   await notifier.send({ id: "job-customer-1", targetKey: "customer", payload: payload() });
 
   assert.equal(messages.length, 1);
-  assert.equal(messages[0].to, "ana@example.com");
+  assert.deepEqual(messages[0].to, { address: "ana@example.com" });
   assert.equal(messages[0].replyTo, "presupuestos@mercamicro.es");
   assert.match(messages[0].subject, /Hemos recibido tu solicitud MM-1234ABCD/);
   assert.match(messages[0].text, /estimación es orientativa/i);
   assert.match(messages[0].text, /no constituye una oferta vinculante/i);
   assert.match(messages[0].html, /Ana &lt;script&gt;alert\(1\)&lt;\/script&gt;/);
   assert.doesNotMatch(messages[0].html, /Ana <script>/);
+  assert.match(messages[0].text, /Tus comentarios: Primera línea\nSegunda línea/);
+  assert.equal(messages[0].headers["Auto-Submitted"], "auto-generated");
+});
+
+test("los correos muestran etiquetas legibles y no presentan hosting propio como gratuito", () => {
+  const lead = payload();
+  lead.answers.hosting = "own";
+  lead.quote.monthly.total = 0;
+  for (const render of [smtpNotifierInternals.renderMessage, smtpNotifierInternals.renderCustomerMessage]) {
+    const message = render(lead);
+    assert.match(message.text, /Interacción: Entender preguntas escritas con lenguaje natural/);
+    assert.match(message.text, /Alcance web: Ya tengo una web donde integrarlo/);
+    assert.match(message.text, /Coste mensual SIN IVA: Alojamiento propio · no incluido/);
+    assert.doesNotMatch(message.text, /Coste mensual SIN IVA: 0/);
+  }
+});
+
+test("un precio no disponible se muestra pendiente de valoración en ambas copias", () => {
+  const lead = payload();
+  lead.quote.implementation.total = null;
+  delete lead.quote.monthly.total;
+  for (const render of [smtpNotifierInternals.renderMessage, smtpNotifierInternals.renderCustomerMessage]) {
+    const message = render(lead);
+    assert.match(message.text, /Implantación SIN IVA: Pendiente de valoración/);
+    assert.match(message.text, /Coste mensual SIN IVA: Pendiente de valoración/);
+    assert.doesNotMatch(message.text, /SIN IVA: 0/);
+  }
+});
+
+test("la copia del cliente rechaza listas de destinatarios antes de usar SMTP", async () => {
+  const notifier = createSmtpNotifier(
+    { from: "presupuestos@example.com", recipients: { sales: "ventas@example.com" } },
+    { transporter: { sendMail: async () => assert.fail("no debe enviar") } },
+  );
+  for (const email of ["ana@example.com,bob@example.com", "ana@example.com\r\nBcc: bob@example.com"]) {
+    const lead = payload();
+    lead.contact.email = email;
+    await assert.rejects(
+      notifier.send({ id: "bad-recipient", targetKey: "customer", payload: lead }),
+      /notification_customer_email_invalid/,
+    );
+  }
+});
+
+test("el fallo de una copia no impide entregar la otra ni duplica el envío correcto", async () => {
+  const store = new MemoryStore();
+  await store.saveCompletedLead({
+    lead: { id: "lead-id", tenantSlug: "tenant", submissionId: "submission-id", quote: {} },
+    notificationJobs: ["customer", "sales"].map((targetKey) => ({ channel: "email", targetKey, payload: payload() })),
+  });
+  const sent = [];
+  const dispatcher = createNotificationDispatcher({
+    store, logger: false,
+    notifiers: { email: { send: async (job) => {
+      if (job.targetKey === "customer") throw new Error("customer_unavailable");
+      sent.push(job.id);
+      return { messageId: "internal-ok" };
+    } } },
+  });
+  await dispatcher.dispatchPending();
+  await dispatcher.dispatchPending();
+  assert.equal(sent.length, 1);
+  const jobs = [...store.notificationJobs.values()];
+  assert.equal(jobs.find((job) => job.targetKey === "sales").status, "sent");
+  assert.equal(jobs.find((job) => job.targetKey === "customer").status, "retry");
 });
 
 test("el dispatcher acepta target_key de Postgres y marca el trabajo como enviado", async () => {
@@ -219,5 +284,22 @@ test("la configuración activada falla cerrada si SMTP está incompleto", async 
   await assert.rejects(
     loadLeadNotificationSettings({ LEAD_NOTIFICATIONS_ENABLED: "true" }),
     /falta LEAD_SMTP_HOST/i,
+  );
+});
+
+test("SMTP rechaza TLS opcional y el destino reservado de copia del cliente", async () => {
+  const valid = {
+    LEAD_NOTIFICATIONS_ENABLED: "true",
+    LEAD_SMTP_HOST: "smtp.example.com",
+    LEAD_EMAIL_FROM: "presupuestos@example.com",
+    LEAD_EMAIL_TO: "ventas@example.com",
+  };
+  await assert.rejects(
+    loadLeadNotificationSettings({ ...valid, LEAD_NOTIFICATION_TARGET_KEY: "customer" }),
+    /customer está reservado/,
+  );
+  await assert.rejects(
+    loadLeadNotificationSettings({ ...valid, LEAD_SMTP_SECURE: "false", LEAD_SMTP_REQUIRE_TLS: "false" }),
+    /SMTP requiere TLS/,
   );
 });

@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright-core";
 
-const baseUrl = process.env.VISUAL_CHECK_URL || "http://127.0.0.1:4173";
+const baseUrl = process.env.VISUAL_CHECK_URL || "http://127.0.0.1:18080";
 const outputDir = new URL("../.visual-check/", import.meta.url);
 const executablePath =
   process.env.BROWSER_PATH ||
@@ -33,6 +33,17 @@ if ((await page.locator(".demo-library-card").count()) !== 18) {
 if ((await page.locator(".sector-choice").count()) !== 7) {
   throw new Error("No se conservaron los siete simuladores sectoriales detallados.");
 }
+await page.locator(".sector-choice-track").scrollIntoViewIfNeeded();
+await page.waitForFunction(() => {
+  const track = document.querySelector(".sector-choice-track");
+  const viewport = track.getBoundingClientRect();
+  return Array.from(track.querySelectorAll("img"))
+    .filter((image) => {
+      const bounds = image.getBoundingClientRect();
+      return bounds.right > viewport.left && bounds.left < viewport.right;
+    })
+    .every((image) => image.complete && image.naturalWidth > 0);
+});
 await page.waitForFunction(() => {
   const track = document.querySelector(".sector-choice-track");
   return track && track.scrollLeft > 0;
@@ -89,13 +100,13 @@ await page.getByRole("radio", { name: "Envío a domicilio" }).click();
 await page.getByRole("button", { name: "Continuar" }).click();
 await page.getByRole("radio", { name: "Sí, productos similares" }).click();
 await page.getByRole("button", { name: "Revisar respuestas" }).click();
-await page.getByRole("heading", { name: /Comprueba las respuestas/i }).waitFor();
+await page.getByRole("heading", { name: "¿Está todo como quieres?" }).waitFor();
 
 await page.getByRole("button", { name: "Modificar ¿Cuántas unidades necesitas?" }).click();
 await page.getByLabel("¿Cuántas unidades necesitas?").fill("24");
-await page.getByRole("button", { name: "Guardar cambio" }).click();
+await page.getByRole("button", { name: "Guardar y revisar" }).click();
 await page.getByText("24 unidades", { exact: true }).waitFor();
-await page.getByRole("button", { name: "Completar demostración" }).click();
+await page.getByRole("button", { name: "Ver resultado de ejemplo" }).click();
 await page.getByRole("heading", { name: "Consulta de stock simulada" }).waitFor();
 await page.screenshot({
   path: fileURLToPath(new URL("demos-desktop-flow.png", outputDir)),

@@ -3,7 +3,7 @@ set -euo pipefail
 
 repo_root="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 sha="${1:-}"
-if [[ -z "$sha" || "${CONFIRM_PRODUCTION:-}" != "YES" ]]; then
+if [[ ! "$sha" =~ ^[0-9a-f]{40}$ || "${CONFIRM_PRODUCTION:-}" != "YES" ]]; then
   echo "Uso: CONFIRM_PRODUCTION=YES ./scripts/promote-prod.sh <SHA completo>" >&2
   exit 1
 fi
@@ -68,6 +68,7 @@ if [[ "$previous_notifications_enabled" == "true" ]]; then
   previous_lead_smtp_port="$(container_env LEAD_SMTP_PORT)"
   previous_lead_smtp_secure="$(container_env LEAD_SMTP_SECURE)"
   previous_lead_smtp_require_tls="$(container_env LEAD_SMTP_REQUIRE_TLS)"
+  previous_lead_customer_copy_enabled="$(container_env LEAD_CUSTOMER_COPY_ENABLED)"
   [[ -n "$previous_lead_email_from" && -n "$previous_lead_email_to" && -n "$previous_lead_smtp_host" ]] || {
     echo "No se puede preparar el rollback de la configuración SMTP activa." >&2
     exit 1
@@ -91,6 +92,10 @@ compose_options=(
   -f "$repo_root/deploy/prod/compose.yaml"
 )
 notifications_mode="${ENABLE_LEAD_NOTIFICATIONS:-}"
+if [[ -n "$notifications_mode" && "$notifications_mode" != "YES" && "$notifications_mode" != "NO" ]]; then
+  echo "ENABLE_LEAD_NOTIFICATIONS debe ser YES o NO." >&2
+  exit 1
+fi
 if [[ -z "$notifications_mode" && "$previous_notifications_enabled" == "true" ]]; then
   notifications_mode="YES"
   export LEAD_EMAIL_FROM="$previous_lead_email_from"
@@ -101,6 +106,7 @@ if [[ -z "$notifications_mode" && "$previous_notifications_enabled" == "true" ]]
   export LEAD_SMTP_REQUIRE_TLS="${previous_lead_smtp_require_tls:-true}"
 fi
 if [[ "$notifications_mode" == "YES" ]]; then
+  export LEAD_CUSTOMER_COPY_ENABLED="${LEAD_CUSTOMER_COPY_ENABLED:-${previous_lead_customer_copy_enabled:-true}}"
   compose_options+=( -f "$repo_root/deploy/prod/compose.notifications.yaml" )
 fi
 
@@ -113,6 +119,7 @@ restore_previous_services() {
     export LEAD_SMTP_PORT="${previous_lead_smtp_port:-587}"
     export LEAD_SMTP_SECURE="${previous_lead_smtp_secure:-false}"
     export LEAD_SMTP_REQUIRE_TLS="${previous_lead_smtp_require_tls:-true}"
+    export LEAD_CUSTOMER_COPY_ENABLED="${previous_lead_customer_copy_enabled:-false}"
   fi
   if [[ -n "$previous_budget" ]]; then
     export BUDGET_WEB_IMAGE="$previous_budget"

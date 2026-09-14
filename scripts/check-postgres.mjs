@@ -19,7 +19,7 @@ await store.initialize();
 const app = await buildServer({
   store,
   logger: false,
-  projectLeads: { notificationChannels: ["email"] },
+  projectLeads: { notificationChannels: ["email"], notificationCustomerCopy: true },
 });
 
 try {
@@ -41,7 +41,6 @@ try {
         name: "Cliente de integración",
         company: "Mercamicro Test",
         email: "integration-test@example.invalid",
-        phone: "+34 600 000 000",
         observations: "Registro efímero para validar migraciones y outbox.",
         website: "",
       },
@@ -51,10 +50,24 @@ try {
   };
 
   const first = await app.inject(request);
-  const duplicate = await app.inject(request);
+  const duplicate = await app.inject({
+    ...request,
+    payload: {
+      ...request.payload,
+      answers: { ...request.payload.answers, needs: ["reservations", "quotes"] },
+    },
+  });
+  const conflict = await app.inject({
+    ...request,
+    payload: { ...request.payload, contact: { ...request.payload.contact, email: "other@example.invalid" } },
+  });
   assert.equal(first.statusCode, 202);
   assert.equal(duplicate.statusCode, 202);
   assert.equal(duplicate.json().reference, first.json().reference);
+  assert.equal(first.json().customerCopyQueued, true);
+  assert.equal(duplicate.json().customerCopyQueued, true);
+  assert.equal(conflict.statusCode, 409);
+  assert.deepEqual(conflict.json(), { error: "submission_conflict" });
   assert.equal(first.json().quote.implementation.total, 2_860);
   assert.equal(first.json().quote.taxIncluded, false);
 
@@ -69,8 +82,8 @@ try {
     JOIN sales.budget_leads AS leads ON leads.id = jobs.lead_id
     WHERE leads.submission_id = ${submissionId}
   `;
-  const [notificationJob] = await store.sql`
-    SELECT jobs.id
+  const notificationJobs = await store.sql`
+    SELECT jobs.id, jobs.target_key
     FROM sales.notification_jobs AS jobs
     JOIN sales.budget_leads AS leads ON leads.id = jobs.lead_id
     WHERE leads.submission_id = ${submissionId}
@@ -80,23 +93,21 @@ try {
   `;
 
   assert.equal(leadCount.count, 1);
-  assert.equal(jobCount.count, 1);
-  await store.markNotificationSent({
-    id: notificationJob.id,
-    providerMessageId: "integration-check",
-  });
-  const [sentJob] = await store.sql`
-    SELECT status, payload
-    FROM sales.notification_jobs
-    WHERE id = ${notificationJob.id}
-  `;
-  assert.equal(sentJob.status, "sent");
-  assert.deepEqual(sentJob.payload, {});
+  assert.equal(jobCount.count, 2);
+  assert.deepEqual(notificationJobs.map((job) => job.target_key).sort(), ["customer", "sales"]);
+  for (const job of notificationJobs) {
+    await store.markNotificationSent({ id: job.id, providerMessageId: "integration-check" });
+    const [sentJob] = await store.sql`
+      SELECT status, payload FROM sales.notification_jobs WHERE id = ${job.id}
+    `;
+    assert.equal(sentJob.status, "sent");
+    assert.deepEqual(sentJob.payload, {});
+  }
   assert.deepEqual(
     migrations.map(({ filename }) => filename),
-    ["001_chatbot.sql", "002_sales_leads.sql"],
+    ["001_chatbot.sql", "002_sales_leads.sql", "003_optional_lead_phone.sql"],
   );
-  console.log("PostgreSQL check OK: migraciones, lead idempotente y outbox saneado.");
+  console.log("PostgreSQL check OK: migraciones, teléfono opcional, idempotencia con conflictos y dos copias saneadas.");
 } finally {
   await app.close();
 }

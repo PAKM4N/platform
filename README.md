@@ -31,7 +31,7 @@ npm run dev
 En otra terminal, inicia la API local:
 
 ```bash
-npm run dev:api
+PORT=3100 npm run dev:api
 ```
 
 Vite reenvía `/api` a `http://127.0.0.1:3100`. El servicio local utiliza memoria
@@ -139,7 +139,7 @@ Con la compilación servida en `http://127.0.0.1:4173`:
 
 ```bash
 npm run preview -- --port 4173
-npm run check:visual
+VISUAL_CHECK_URL=http://127.0.0.1:4173 npm run check:visual
 ```
 
 La web comercial se compila y comprueba por separado:
@@ -148,6 +148,23 @@ La web comercial se compila y comprueba por separado:
 npm run build:presupuestos
 VISUAL_CHECK_URL=http://127.0.0.1:18081 npm run check:visual:presupuestos
 ```
+
+La revisión completa de UX recorre las 18 demos y los 7 simuladores en escritorio
+y móvil, comprueba tamaños de pantalla adicionales y prueba errores, edición,
+retroceso y el chat sin almacenamiento. Con DEV en los puertos habituales:
+
+```bash
+docker build -f deploy/testing/Dockerfile.browser -t mercamicro/ux-browser:local .
+docker run --rm --network host -v "$PWD:/app" -w /app \
+  mercamicro/ux-browser:local node scripts/check-ux.mjs
+docker run --rm --network host -v "$PWD:/app" -w /app \
+  mercamicro/ux-browser:local node scripts/visual-check-presupuestos.mjs
+```
+
+Los envíos de estas pruebas de navegador se simulan; no salen correos reales.
+Las capturas se guardan en `.visual-check/`. Las pruebas de PostgreSQL de
+`scripts/check-postgres.mjs` requieren una base aislada cuyo nombre contenga
+`test` o `check`, y `ALLOW_POSTGRES_INTEGRATION_TEST=YES`.
 
 ## Estructura
 

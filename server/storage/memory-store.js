@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { assertSameLeadSubmission } from "../lead-submission.js";
 
 export class MemoryStore {
   constructor() {
@@ -100,7 +101,12 @@ export class MemoryStore {
     const existingId = this.leadSubmissions.get(key);
     if (existingId) {
       const existing = this.leads.get(existingId);
-      return { ...structuredClone(existing), created: false };
+      assertSameLeadSubmission(existing, lead);
+      return {
+        ...structuredClone(existing),
+        customerCopyQueued: this.hasCustomerCopy(existingId),
+        created: false,
+      };
     }
 
     const stored = {
@@ -126,7 +132,18 @@ export class MemoryStore {
       });
     }
 
-    return { ...structuredClone(stored), created: true };
+    return {
+      ...structuredClone(stored),
+      customerCopyQueued: this.hasCustomerCopy(lead.id),
+      created: true,
+    };
+  }
+
+  hasCustomerCopy(leadId) {
+    return [...this.notificationJobs.values()].some(
+      (job) => job.leadId === leadId && job.channel === "email" &&
+        job.targetKey === "customer" && job.status !== "dead",
+    );
   }
 
   async claimNotificationJobs({ limit = 10 }) {

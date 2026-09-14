@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import postgres from "postgres";
 import { runMigrations } from "../migrations-runner.js";
+import { assertSameLeadSubmission } from "../lead-submission.js";
 
 const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
 
@@ -184,11 +185,22 @@ export class PostgresStore {
       let row = created;
       if (!row) {
         [row] = await transaction`
-          SELECT id, submission_id, submitted_at, quote_snapshot
+          SELECT id, submission_id, submitted_at, quote_snapshot,
+                 contact_name, company, email, phone, observations, answers
           FROM sales.budget_leads
           WHERE tenant_slug = ${lead.tenantSlug}
             AND submission_id = ${lead.submissionId}
         `;
+        assertSameLeadSubmission({
+          contact: {
+            name: row.contact_name,
+            company: row.company,
+            email: row.email,
+            phone: row.phone,
+            observations: row.observations,
+          },
+          answers: row.answers,
+        }, lead);
       }
 
       if (created) {
@@ -205,7 +217,18 @@ export class PostgresStore {
         }
       }
 
-      return { ...this.mapLead(row), created: Boolean(created) };
+      const [notification] = await transaction`
+        SELECT EXISTS (
+          SELECT 1 FROM sales.notification_jobs
+          WHERE lead_id = ${row.id} AND channel = 'email'
+            AND target_key = 'customer' AND status <> 'dead'
+        ) AS customer_copy_queued
+      `;
+      return {
+        ...this.mapLead(row),
+        customerCopyQueued: notification.customer_copy_queued,
+        created: Boolean(created),
+      };
     });
   }
 

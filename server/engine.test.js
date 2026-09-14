@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { initialBotState, replyToMessage } from "./engine.js";
+import { engineInternals, initialBotState, replyToMessage } from "./engine.js";
+import { SERVICES } from "../src/service-models.js";
 
 function turn(state, message, pagePath = "/") {
   return replyToMessage({ state, message, pagePath });
@@ -75,4 +76,117 @@ test("reinicia una conversación completada", () => {
 
   assert.equal(response.state.phase, "select-service");
   assert.equal(response.state.serviceId, null);
+});
+
+function stateAtField(serviceId, fieldId) {
+  const state = initialBotState(`/${SERVICES[serviceId].slug}`);
+  state.fieldIndex = engineInternals.selectedFields(serviceId).findIndex((field) => field.id === fieldId);
+  assert.ok(state.fieldIndex >= 0, `${serviceId}.${fieldId} debe ser un campo del chat`);
+  return state;
+}
+
+test("todas las opciones guiadas aceptan su etiqueta completa y su valor exacto", () => {
+  for (const serviceId of Object.keys(SERVICES)) {
+    for (const field of engineInternals.selectedFields(serviceId).filter((item) => item.type === "select")) {
+      for (const [value, label] of field.options) {
+        for (const answer of [value, label]) {
+          const response = turn(stateAtField(serviceId, field.id), answer);
+          assert.equal(response.state.values[field.id], value, `${serviceId}.${field.id}: ${answer}`);
+          assert.equal(response.state.fieldIndex, stateAtField(serviceId, field.id).fieldIndex + 1);
+        }
+      }
+    }
+  }
+});
+
+test("una elección inválida o ambigua no consume la pregunta ni modifica el valor", () => {
+  const cases = [
+    ["vehicles", "vehicleType", ["-1", "1.5", "1,5", "1 coche", "1 o 2", "0", "6", "...", "¿?", "---", "plazas", "económico o compacto", "no quiero compacto"]],
+    ["bicycles", "bikeType", ["eléctrica", "urbana o montaña", "carre", "no sé si urbana o montaña"]],
+    ["vehicles", "transmission", ["manual o automático", "no automático"]],
+  ];
+  for (const [serviceId, fieldId, answers] of cases) {
+    const state = stateAtField(serviceId, fieldId);
+    for (const answer of answers) {
+      const response = turn(state, answer);
+      assert.deepEqual(response.state, state, `${serviceId}.${fieldId}: ${answer}`);
+      assert.match(response.message, /Elige una sola opción/);
+      assert.ok(response.quickReplies.length > 0);
+    }
+  }
+});
+
+test("acepta números completos y fragmentos inequívocos de una opción", () => {
+  const cases = [
+    ["vehicles", "vehicleType", "2", "compact"],
+    ["vehicles", "vehicleType", "la opción 3", "suv"],
+    ["vehicles", "vehicleType", "Compacto", "compact"],
+    ["vehicles", "vehicleType", "Quiero un compacto, por favor", "compact"],
+    ["bicycles", "bikeType", "Prefiero una eléctrica urbana", "electric"],
+    ["vehicles", "pickup", "centro", "city"],
+  ];
+  for (const [serviceId, fieldId, answer, expected] of cases) {
+    const state = stateAtField(serviceId, fieldId);
+    const response = turn(state, answer);
+    assert.equal(response.state.values[fieldId], expected, answer);
+    assert.equal(response.state.fieldIndex, state.fieldIndex + 1, answer);
+  }
+});
+
+test("las cantidades discretas y días necesitan números enteros", () => {
+  for (const [serviceId, fieldId] of [["bicycles", "bikeCount"], ["bicycles", "days"], ["vehicles", "days"], ["moving", "rooms"], ["cleaning", "windows"]]) {
+    for (const answer of ["1.5", "2,5"]) {
+      const state = stateAtField(serviceId, fieldId);
+      const response = turn(state, answer);
+      assert.deepEqual(response.state, state, `${serviceId}.${fieldId}: ${answer}`);
+      assert.match(response.message, /número entero.*sin decimales/);
+    }
+  }
+});
+
+test("rechaza intervalos, múltiples cifras, unidades incorrectas y números incompletos", () => {
+  for (const answer of ["2 o 3", "2-3", "2/3", "1e2", "2 bicicletas y 3 días", "2,5.0", "2 m²", "--2"]) {
+    const state = stateAtField("bicycles", "bikeCount");
+    const response = turn(state, answer);
+    assert.deepEqual(response.state, state, answer);
+    assert.match(response.message, /Escribe un único valor/);
+  }
+  const state = stateAtField("cleaning", "area");
+  assert.deepEqual(turn(state, "120 m").state, state, "metros lineales no son metros cuadrados");
+  assert.match(turn(state, "-120").message, /El mínimo/);
+  assert.match(turn(state, "1201").message, /El máximo/);
+});
+
+test("admite cantidades con unidades y decimales de superficie o distancia", () => {
+  const cases = [
+    ["bicycles", "bikeCount", "4 bicicletas", 4],
+    ["bicycles", "days", "3 días", 3],
+    ["cleaning", "windows", "8 ventanas", 8],
+    ["moving", "rooms", "4 estancias", 4],
+    ["cleaning", "area", "120,5 m²", 120.5],
+    ["painting", "area", "80.5 m2", 80.5],
+    ["renovation", "area", "aproximadamente 95,5 metros cuadrados", 95.5],
+    ["moving", "distance", "12.5 km", 12.5],
+    ["moving", "distance", "12,5 kilómetros", 12.5],
+  ];
+  for (const [serviceId, fieldId, answer, expected] of cases) {
+    const state = stateAtField(serviceId, fieldId);
+    const response = turn(state, answer);
+    assert.equal(response.state.values[fieldId], expected, answer);
+    assert.equal(response.state.fieldIndex, state.fieldIndex + 1, answer);
+  }
+});
+
+test("una negativa no añade un extra y las respuestas contradictorias piden aclaración", () => {
+  const state = stateAtField("moving", "packing");
+  for (const [answer, expected] of [["Sí", true], ["Sí, incluir", true], ["No", false], ["No incluir", false], ["No, por favor", false]]) {
+    const response = turn(state, answer);
+    assert.equal(response.state.values.packing, expected, answer);
+    assert.equal(response.completed, true);
+  }
+  for (const answer of ["sí o no", "no sé si incluir", "no, sí", "no quiero incluir"]) {
+    const response = turn(state, answer);
+    assert.deepEqual(response.state, state, answer);
+    assert.match(response.message, /sí o no/);
+  }
 });

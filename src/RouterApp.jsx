@@ -12,7 +12,9 @@ const defaultDescription =
   "Simuladores sectoriales y chatbots web creados a medida por Mercamicro.";
 
 function currentPath() {
-  const path = decodeURIComponent(window.location.pathname).replace(/\/+$/, "");
+  let path = window.location.pathname;
+  try { path = decodeURIComponent(path); } catch { /* Una URL incompleta muestra la página 404. */ }
+  path = path.replace(/\/+$/, "");
   return path || "/";
 }
 
@@ -30,7 +32,9 @@ function usePathname() {
 
 function updateMetadata({ service, demo, pathname }) {
   const activeExperience = demo || service;
-  document.title = activeExperience
+  document.title = !activeExperience && !["/", "/demos"].includes(pathname)
+    ? "Demo no encontrada — Mercamicro"
+    : activeExperience
     ? `${activeExperience.name} — Demo Mercamicro`
     : "Mercamicro — Demos de automatización";
 
@@ -62,7 +66,7 @@ function NotFound() {
   }, []);
 
   return (
-    <main className="not-found">
+    <main className="not-found" id="contenido-principal" tabIndex={-1}>
       <span>404 / SECTOR NO ENCONTRADO</span>
       <h1>Esta demo no existe.</h1>
       <p>Vuelve al selector para elegir uno de los sectores disponibles.</p>
@@ -85,6 +89,10 @@ export default function RouterApp() {
 
   useEffect(() => {
     updateMetadata({ service, demo, pathname });
+    if (window.location.hash) {
+      const frame = window.requestAnimationFrame(() => document.getElementById(window.location.hash.slice(1))?.scrollIntoView({ behavior: "instant" }));
+      return () => window.cancelAnimationFrame(frame);
+    }
   }, [pathname, service, demo]);
 
   let page = <NotFound />;
@@ -93,13 +101,14 @@ export default function RouterApp() {
     page = <GenericDemoExperience demo={demo} key={demo.id} />;
   }
   else if (service && pathname === `/${service.slug}`) {
-    page = <SectorExperience serviceId={service.id} />;
+    page = <SectorExperience serviceId={service.id} key={service.id} />;
   }
 
   return (
     <>
+      <a className="skip-link" href="#contenido-principal" onClick={() => document.querySelector("main")?.focus()}>Saltar al contenido</a>
       {page}
-      {!demo && <ChatWidget pathname={pathname} />}
+      {!demo && (service || pathname === "/" || pathname === "/demos") && <ChatWidget pathname={pathname} key={`chat-${service?.id || "home"}`} />}
     </>
   );
 }

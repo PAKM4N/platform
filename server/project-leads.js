@@ -9,6 +9,7 @@ import {
 } from "../src/project-catalog.js";
 import { calculateProjectQuote } from "../src/project-pricing.js";
 import { TENANT, hostWithoutPort } from "./tenant-config.js";
+import { SINGLE_EMAIL_PATTERN } from "./lead-submission.js";
 
 const ids = (options) => options.map(({ id }) => id);
 const NOTIFICATION_CHANNELS = new Set(["email", "telegram", "webhook"]);
@@ -46,7 +47,7 @@ export const PROJECT_LEAD_BODY_SCHEMA = {
     contact: {
       type: "object",
       additionalProperties: false,
-      required: ["name", "email", "phone"],
+      required: ["name", "email"],
       properties: {
         name: {
           type: "string",
@@ -59,12 +60,14 @@ export const PROJECT_LEAD_BODY_SCHEMA = {
           maxLength: 160,
           pattern: "^[^\\u0000-\\u001F\\u007F]*$",
         },
-        email: { type: "string", minLength: 3, maxLength: 254, format: "email" },
+        email: {
+          type: "string", minLength: 3, maxLength: 254,
+          format: "email", pattern: SINGLE_EMAIL_PATTERN.source,
+        },
         phone: {
           type: "string",
-          minLength: 6,
           maxLength: 40,
-          pattern: "^[0-9+(). /-]+$",
+          pattern: "^[0-9+(). /-]*$",
         },
         observations: {
           type: "string",
@@ -159,7 +162,12 @@ export async function registerProjectLeadRoutes(
       }
 
       const contact = normalizeContact(request.body.contact);
-      if (!contact.name || !contact.email || !contact.phone) {
+      const phoneDigits = contact.phone.replace(/\D/g, "");
+      if (
+        !contact.name ||
+        !contact.email ||
+        (contact.phone && (phoneDigits.length < 6 || phoneDigits.length > 15))
+      ) {
         return reply.code(400).send({ error: "invalid_request" });
       }
 
@@ -169,7 +177,7 @@ export async function registerProjectLeadRoutes(
       const lead = {
         id,
         tenantSlug: TENANT.slug,
-        submissionId: request.body.submissionId,
+        submissionId: request.body.submissionId.toLowerCase(),
         submittedAt,
         contact,
         answers: quote.answers,
@@ -195,16 +203,22 @@ export async function registerProjectLeadRoutes(
         }
         return jobs;
       });
-      const stored = await store.saveCompletedLead({
-        lead,
-        notificationJobs,
-      });
+      let stored;
+      try {
+        stored = await store.saveCompletedLead({ lead, notificationJobs });
+      } catch (error) {
+        if (error.code === "submission_conflict") {
+          return reply.code(409).send({ error: "submission_conflict" });
+        }
+        throw error;
+      }
 
       return reply.code(202).send({
         accepted: true,
         reference: stored.reference,
         submittedAt: stored.submittedAt,
         quote: stored.quote,
+        customerCopyQueued: Boolean(stored.customerCopyQueued),
       });
     },
   );

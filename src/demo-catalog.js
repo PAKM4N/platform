@@ -27,6 +27,7 @@ const text = (id, label, placeholder, hint = "No incluyas datos personales reale
   hint,
   required: true,
   minLength: 3,
+  maxLength: 500,
 });
 
 const number = (id, label, min, max, suffix = "") => ({
@@ -35,6 +36,7 @@ const number = (id, label, min, max, suffix = "") => ({
   type: "number",
   hint: `Indica un valor entre ${min} y ${max}${suffix ? ` ${suffix}` : ""}.`,
   required: true,
+  integer: true,
   min,
   max,
   suffix,
@@ -44,8 +46,9 @@ const date = (id, label) => ({
   id,
   label,
   type: "date",
-  hint: "Usaremos la fecha para simular disponibilidad.",
+  hint: "Elige hoy o una fecha futura. No se realizará ninguna reserva.",
   required: true,
+  minDate: "today",
 });
 
 const CHANNEL_OPTIONS = [
@@ -124,8 +127,8 @@ export const DEMO_CATALOG = [
     accent: "#7b4cd4",
     tint: "#f2ebff",
     description:
-      "Convierte una petición abierta en un briefing ordenado y listo para valorar.",
-    capabilities: ["Briefing", "Cualificación", "Resumen editable"],
+      "Describe lo que necesitas y recibe un resumen claro para preparar una propuesta.",
+    capabilities: ["Necesidades", "Plazos", "Resumen editable"],
     questions: [
       single("projectType", "¿Qué necesitas presupuestar?", [
         ["service", "Un servicio"],
@@ -138,10 +141,10 @@ export const DEMO_CATALOG = [
       single("channel", "¿Cómo prefieres recibir la valoración?", CHANNEL_OPTIONS),
     ],
     result: {
-      title: "Briefing listo para valorar",
+      title: "Tu solicitud, lista para valorar",
       description:
         "Las respuestas quedan estructuradas para calcular, revisar o asignar la solicitud.",
-      status: "Solicitud cualificada",
+      status: "Resumen de ejemplo · sin envío",
       nextSteps: ["Aplicar reglas de precio", "Revisión comercial", "Enviar propuesta"],
     },
   },
@@ -226,7 +229,7 @@ export const DEMO_CATALOG = [
   {
     id: "customer-faq",
     slug: "atencion-cliente-faq",
-    name: "Atención al cliente y FAQs",
+    name: "Atención al cliente y preguntas frecuentes",
     eyebrow: "ATENCIÓN Y SOPORTE",
     category: "support",
     template: "faq",
@@ -235,7 +238,7 @@ export const DEMO_CATALOG = [
     tint: "#e5f6f0",
     description:
       "Responde preguntas habituales y deriva solo los casos que necesitan intervención.",
-    capabilities: ["FAQs", "Contexto", "Escalado"],
+    capabilities: ["Preguntas frecuentes", "Ayuda", "Atención personal"],
     questions: [
       single("topic", "¿Sobre qué tema necesitas ayuda?", [
         ["hours", "Horarios y contacto"],
@@ -256,13 +259,13 @@ export const DEMO_CATALOG = [
       description:
         "La demo clasifica la consulta; una base de conocimiento aportaría la respuesta real.",
       status: "Consulta clasificada",
-      nextSteps: ["Buscar conocimiento", "Responder con contexto", "Escalar si es necesario"],
+      nextSteps: ["Consultar información del negocio", "Preparar una respuesta", "Derivar a una persona si hace falta"],
     },
   },
   {
     id: "lead-capture",
     slug: "captacion-leads",
-    name: "Captación de leads",
+    name: "Captación de clientes",
     eyebrow: "CAPTACIÓN Y VENTA",
     category: "sales",
     template: "lead",
@@ -271,7 +274,7 @@ export const DEMO_CATALOG = [
     tint: "#ffedf1",
     description:
       "Detecta interés, encaje y momento de compra antes de entregar el contacto al equipo.",
-    capabilities: ["Cualificación", "Scoring", "Asignación"],
+    capabilities: ["Necesidades", "Interés", "Seguimiento"],
     questions: [
       single("interest", "¿Qué solución te interesa?", [
         ["information", "Quiero entender las opciones"],
@@ -289,9 +292,9 @@ export const DEMO_CATALOG = [
       single("channel", "¿Qué canal de contacto preferiría?", CHANNEL_OPTIONS),
     ],
     result: {
-      title: "Lead cualificado",
+      title: "Una primera conversación bien encaminada",
       description:
-        "El contacto se podría puntuar, asignar y notificar únicamente al terminar el flujo.",
+        "El equipo tendría el contexto necesario para preparar una respuesta útil y acordar el siguiente paso.",
       status: "Demo: no se ha enviado ningún dato",
       nextSteps: ["Calcular encaje", "Asignar responsable", "Crear seguimiento"],
     },
@@ -307,7 +310,7 @@ export const DEMO_CATALOG = [
     accent: "#4b68c8",
     tint: "#ebefff",
     description:
-      "Aclara qué información necesita cada persona y entrega una solicitud accionable.",
+      "Encuentra qué información necesitas y cómo prefieres recibir una respuesta.",
     capabilities: ["Clasificación", "Documentación", "Seguimiento"],
     questions: [
       single("topic", "¿Qué información buscas?", [
@@ -381,7 +384,7 @@ export const DEMO_CATALOG = [
     accent: "#13816c",
     tint: "#e5f7f2",
     description:
-      "Busca disponibilidad combinando recurso, fecha, cantidad y flexibilidad.",
+      "Indica qué necesitas, para qué fecha y si puedes considerar otras alternativas.",
     capabilities: ["Búsqueda", "Alternativas", "Reserva"],
     questions: [
       single("resourceType", "¿Qué quieres comprobar?", [
@@ -435,7 +438,7 @@ export const DEMO_CATALOG = [
       title: "Reserva lista para confirmar",
       description:
         "El restaurante recibiría una petición completa y podría ofrecer una mesa disponible.",
-      status: "Mesa de demostración preseleccionada",
+      status: "Petición de ejemplo · sin mesa reservada",
       nextSteps: ["Comprobar aforo", "Bloquear mesa", "Enviar confirmación"],
     },
   },
@@ -451,7 +454,7 @@ export const DEMO_CATALOG = [
     tint: "#fff0e9",
     description:
       "Clasifica la avería y prepara una cita de taller con la información necesaria.",
-    capabilities: ["Triaje", "Agenda", "Movilidad"],
+    capabilities: ["Averías", "Mantenimiento", "Agenda"],
     legacyLinks: [{ path: "/reservas-de-taller", label: "Simulador detallado de taller" }],
     questions: [
       text("vehicle", "¿Qué vehículo es?", "Ejemplo: turismo híbrido de 2021"),
@@ -461,7 +464,7 @@ export const DEMO_CATALOG = [
         ["repair", "Reparación"],
         ["tires", "Neumáticos"],
       ]),
-      text("symptoms", "Describe el síntoma principal", "Ejemplo: vibra al frenar a baja velocidad"),
+      text("symptoms", "¿Qué debe saber el taller?", "Ejemplo: toca revisión anual o vibra al frenar", "Si no hay una avería, indica el mantenimiento que necesitas. Usa un caso ficticio."),
       single("urgency", "¿Con qué urgencia?", URGENCY_OPTIONS),
     ],
     result: {
@@ -483,7 +486,7 @@ export const DEMO_CATALOG = [
     accent: "#a54882",
     tint: "#faeaf4",
     description:
-      "Adapta la agenda al tipo de centro, tratamiento, duración y profesional.",
+      "Elige el centro, el servicio y el día que te encaja para preparar una cita.",
     capabilities: ["Tratamientos", "Agenda", "Recordatorios"],
     questions: [
       single("business", "¿Qué centro quieres simular?", [
@@ -491,12 +494,19 @@ export const DEMO_CATALOG = [
         ["aesthetic", "Centro de estética"],
         ["hairdresser", "Peluquería"],
       ]),
-      single("service", "¿Qué tipo de atención necesitas?", [
+      {
+        ...single("service", "¿Qué tipo de atención necesitas?", [
         ["assessment", "Primera valoración"],
         ["short", "Servicio de hasta 30 minutos"],
         ["standard", "Servicio de unos 60 minutos"],
         ["extended", "Tratamiento largo"],
-      ]),
+        ]),
+        variants: [
+          { when: { business: "clinic" }, options: [choice("assessment", "Primera consulta"), choice("followup", "Consulta de seguimiento"), choice("checkup", "Revisión programada")] },
+          { when: { business: "aesthetic" }, options: [choice("assessment", "Primera valoración"), choice("facial", "Cuidado facial"), choice("body", "Cuidado corporal")] },
+          { when: { business: "hairdresser" }, options: [choice("cut", "Corte de pelo"), choice("color", "Coloración"), choice("styling", "Peinado para un evento")] },
+        ],
+      },
       date("preferredDate", "¿Qué día prefieres?"),
       single("timeWindow", "¿Qué franja te encaja?", [
         ["morning", "Mañana"],
@@ -524,7 +534,7 @@ export const DEMO_CATALOG = [
     accent: "#668c18",
     tint: "#eff6dc",
     description:
-      "Un único recorrido configurable para comprobar y solicitar recursos de alquiler.",
+      "Prueba cómo solicitar una bicicleta, un vehículo o material para los días que necesitas.",
     capabilities: ["Flota", "Duración", "Entrega"],
     legacyLinks: [
       { path: "/alquiler-de-vehiculos", label: "Simulador de vehículos" },
@@ -564,7 +574,7 @@ export const DEMO_CATALOG = [
     accent: "#3c669f",
     tint: "#e8f1fc",
     description:
-      "Cualifica una búsqueda inmobiliaria y prepara propiedades o visitas relevantes.",
+      "Prepara una búsqueda, una visita o la valoración de un inmueble según tu objetivo.",
     capabilities: ["Criterios", "Inmuebles", "Visitas"],
     questions: [
       single("operation", "¿Qué operación te interesa?", [
@@ -580,19 +590,33 @@ export const DEMO_CATALOG = [
         ["land", "Terreno"],
       ]),
       text("area", "¿En qué zona?", "Ejemplo: centro y barrios próximos"),
-      single("nextStep", "¿Cuál sería el siguiente paso ideal?", [
+      {
+        ...single("nextStep", "¿Cuál sería el siguiente paso ideal?", [
         ["list", "Ver propiedades"],
         ["visit", "Concertar una visita"],
         ["call", "Hablar con un agente"],
         ["alerts", "Crear una alerta"],
-      ]),
+        ]),
+        variants: [{
+          when: { operation: ["sell", "valuation"] },
+          label: "¿Cómo prefieres empezar la valoración?",
+          options: [choice("estimate", "Recibir una valoración orientativa"), choice("property-visit", "Concertar una visita al inmueble"), choice("agent-call", "Hablar con un agente")],
+        }],
+      },
     ],
     result: {
-      title: "Demanda inmobiliaria cualificada",
+      title: "Tu búsqueda inmobiliaria, preparada",
       description:
         "Los criterios pueden cruzarse con cartera, agenda y alertas automáticas.",
       status: "Búsqueda de ejemplo preparada",
       nextSteps: ["Buscar coincidencias", "Priorizar inmuebles", "Proponer visita"],
+      variants: [{
+        when: { operation: ["sell", "valuation"] },
+        title: "Tu petición de valoración, preparada",
+        description: "La agencia tendría el tipo de inmueble, la zona y tu preferencia para organizar una valoración.",
+        status: "Valoración de ejemplo · sin contacto real",
+        nextSteps: ["Revisar las características del inmueble", "Analizar propiedades comparables", "Acordar una valoración con el propietario"],
+      }],
     },
   },
   {
@@ -618,12 +642,16 @@ export const DEMO_CATALOG = [
       ]),
       text("route", "Indica origen y destino de ejemplo", "Ejemplo: Madrid centro → Toledo"),
       number("rooms", "¿Cuántas estancias tienen mobiliario?", 1, 20, "estancias"),
-      multi("extras", "¿Qué servicios adicionales necesitas?", [
+      {
+        ...multi("extras", "¿Necesitas algún servicio adicional?", [
         ["packing", "Embalaje"],
         ["assembly", "Desmontaje y montaje"],
         ["storage", "Almacenaje temporal"],
         ["lift", "Plataforma elevadora"],
-      ]),
+        ], "Opcional. Marca lo que necesites o continúa sin extras."),
+        required: false,
+        minSelections: 0,
+      },
     ],
     result: {
       title: "Mudanza dimensionada",
@@ -644,8 +672,8 @@ export const DEMO_CATALOG = [
     accent: "#4459a5",
     tint: "#ebeeff",
     description:
-      "Realiza un triaje inicial y decide entre instrucciones, asistencia remota o visita.",
-    capabilities: ["Triaje", "Soporte", "Visitas"],
+      "Describe el problema y elige entre ayuda guiada, asistencia remota o visita técnica.",
+    capabilities: ["Diagnóstico inicial", "Soporte", "Visitas"],
     questions: [
       single("equipment", "¿Qué equipo necesita asistencia?", [
         ["computer", "Equipo informático"],
@@ -671,8 +699,15 @@ export const DEMO_CATALOG = [
       title: "Caso técnico clasificado",
       description:
         "El sistema podría aplicar protocolos, asignar prioridad y reservar una intervención.",
-      status: "Triaje de demostración completado",
+      status: "Consulta de ejemplo · sin técnico asignado",
       nextSteps: ["Aplicar protocolo", "Asignar prioridad", "Resolver o programar visita"],
+      variants: [{
+        when: { status: "unsafe" },
+        title: "Este caso necesita revisión profesional",
+        description: "La posible situación de riesgo se señalaría al equipo técnico antes de ofrecer ayuda. Esta demo no evalúa averías ni presta asistencia real.",
+        status: "Riesgo indicado · pendiente de revisión humana",
+        nextSteps: ["Dar prioridad a la revisión profesional", "Evaluar el caso con un técnico", "Acordar la intervención adecuada"],
+      }],
     },
   },
   {
@@ -695,13 +730,33 @@ export const DEMO_CATALOG = [
         ["track", "Consultar un pedido"],
         ["return", "Gestionar una devolución"],
       ]),
-      text("product", "¿Qué producto o pedido usamos en la demo?", "Ejemplo: mochila para portátil de 15 pulgadas"),
-      multi("priorities", "¿Qué es importante para ti?", [
+      {
+        ...text("product", "¿Qué producto buscas?", "Ejemplo: mochila para portátil de 15 pulgadas"),
+        variants: [{
+          when: { intent: ["track", "return"] },
+          label: "¿Qué pedido usamos en la demo?",
+          placeholder: "Ejemplo: PED-DEMO-2048",
+          hint: "Inventa una referencia. No consultaremos ningún pedido real.",
+        }],
+      },
+      {
+        ...multi("priorities", "¿Qué es importante para ti?", [
         ["price", "Precio"],
         ["availability", "Disponibilidad"],
         ["delivery", "Entrega rápida"],
         ["quality", "Calidad o prestaciones"],
-      ]),
+        ]),
+        variants: [
+          {
+            when: { intent: "track" }, type: "single", label: "¿Qué quieres saber del envío?", hint: "Elige la información que necesitas.",
+            options: [choice("delivery-status", "Estado actual"), choice("delivery-date", "Fecha prevista de entrega"), choice("delivery-change", "Cambiar datos de entrega")],
+          },
+          {
+            when: { intent: "return" }, type: "single", label: "¿Cuál es el motivo de la devolución?", hint: "Usa un caso de ejemplo.",
+            options: [choice("damaged", "Ha llegado dañado"), choice("wrong", "He recibido otro producto"), choice("fit", "No es lo que esperaba"), choice("other", "Otro motivo")],
+          },
+        ],
+      },
       single("channel", "¿Dónde continuarías el proceso?", [
         ["web", "En la tienda web"],
         ["whatsapp", "Por WhatsApp"],
@@ -714,6 +769,20 @@ export const DEMO_CATALOG = [
         "La intención determina si consultar catálogo, pedido, logística o postventa.",
       status: "Sin compra ni transacción real",
       nextSteps: ["Consultar catálogo", "Personalizar respuesta", "Continuar operación"],
+      variants: [
+        {
+          when: { intent: "track" }, title: "Consulta de envío preparada",
+          description: "Una tienda conectada podría consultar el pedido y ofrecer información del transportista. Aquí solo mostramos el resumen de tu ejemplo.",
+          status: "Sin consulta real al transportista",
+          nextSteps: ["Verificar el pedido y su titular", "Consultar el seguimiento del envío", "Informar o gestionar la solicitud"],
+        },
+        {
+          when: { intent: "return" }, title: "Petición de devolución preparada",
+          description: "La tienda revisaría el pedido, el motivo y sus condiciones antes de indicar cómo devolverlo. Esta prueba no inicia una devolución.",
+          status: "Ejemplo · sin devolución tramitada",
+          nextSteps: ["Verificar el pedido y su titular", "Revisar condiciones y motivo", "Indicar las opciones y los pasos disponibles"],
+        },
+      ],
     },
   },
   {
@@ -727,8 +796,8 @@ export const DEMO_CATALOG = [
     accent: "#c64444",
     tint: "#ffeded",
     description:
-      "Registra, prioriza y enruta una incidencia con toda la información útil.",
-    capabilities: ["Tickets", "Prioridad", "Seguimiento"],
+      "Explica qué ha ocurrido para que el equipo adecuado pueda atenderlo con el contexto necesario.",
+    capabilities: ["Incidencias", "Prioridad", "Seguimiento"],
     questions: [
       single("category", "¿Qué tipo de incidencia quieres simular?", [
         ["access", "Acceso o credenciales"],
@@ -751,11 +820,18 @@ export const DEMO_CATALOG = [
       ]),
     ],
     result: {
-      title: "Incidencia registrada y priorizada",
+      title: "Resumen de la incidencia preparado",
       description:
-        "El impacto y la severidad permiten asignar cola, SLA y responsable.",
-      status: "Ticket de demostración creado",
+        "El equipo recibiría el problema, el impacto y la urgencia para organizar la atención.",
+      status: "Simulación · no se ha abierto una incidencia real",
       nextSteps: ["Asignar prioridad", "Enrutar al equipo", "Notificar seguimiento"],
+      variants: [{
+        when: { severity: ["high", "critical"] },
+        title: "Incidencia con atención prioritaria",
+        description: "El bloqueo o riesgo que has indicado se destacaría para que el equipo responsable valore la urgencia. Esta demo no avisa a un equipo de soporte.",
+        status: "Prioridad sugerida · requiere revisión humana",
+        nextSteps: ["Avisar al equipo responsable", "Revisar alcance y prioridad", "Comunicar el plan de actuación"],
+      }],
     },
   },
 ];
