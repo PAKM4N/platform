@@ -51,6 +51,62 @@ demos.mercamicro.es {
 	}
 }
 
+# RECOGIDA PÚBLICA DE ESTADÍSTICAS
+stats.mercamicro.es {
+	log {
+		output stdout
+		format json
+	}
+
+	encode zstd gzip
+
+	@tracker {
+		path /script.js
+		method GET HEAD
+	}
+
+	handle @tracker {
+		reverse_proxy umami:3000
+	}
+
+	@collect {
+		path /api/send
+		method POST OPTIONS
+	}
+
+	handle @collect {
+		reverse_proxy umami:3000
+	}
+
+	handle {
+		respond "Forbidden" 403
+	}
+}
+
+# PANEL PRIVADO DE UMAMI
+umami.mercamicro.es {
+	log {
+		output stdout
+		format json
+	}
+
+	encode zstd gzip
+
+	tls internal
+
+	@internal {
+		remote_ip 192.168.15.0/24 172.22.121.0/24
+	}
+
+	handle @internal {
+		reverse_proxy umami:3000
+	}
+
+	handle {
+		respond "Forbidden" 403
+	}
+}
+
 ingress.chatbots.mercamicro.es {
 	log {
 		output stdout
@@ -72,5 +128,26 @@ ingress.chatbots.mercamicro.es {
 			health_uri /health
 			lb_try_duration 3s
 		}
+	}
+}
+
+n8n.mercamicro.es {
+	log {
+		output stdout
+		format json
+	}
+
+	encode zstd gzip
+
+	@internal {
+		remote_ip 172.22.121.0/24
+	}
+
+	handle @internal {
+		reverse_proxy http://172.22.121.20:5678
+	}
+
+	handle {
+		respond "Forbidden" 403
 	}
 }

@@ -22,7 +22,14 @@ function usePathname() {
   const [pathname, setPathname] = useState(currentPath);
 
   useEffect(() => {
-    const update = () => setPathname(currentPath());
+    const update = (event) => {
+      // Umami 3.4 tracks pushState/replaceState, but not browser back/forward.
+      // Ignore navigate()'s synthetic event: its pushState was already tracked.
+      if (event.isTrusted && window.umami) {
+        window.history.replaceState(window.history.state, "", window.location.href);
+      }
+      setPathname(currentPath());
+    };
     window.addEventListener("popstate", update);
     return () => window.removeEventListener("popstate", update);
   }, []);

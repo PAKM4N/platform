@@ -14,6 +14,7 @@
     "preview": "vite preview --host 0.0.0.0",
     "check:visual": "node scripts/visual-check.mjs",
     "check:visual:presupuestos": "node scripts/visual-check-presupuestos.mjs",
+    "check:analytics": "node scripts/check-analytics.mjs",
     "check:postgres": "node scripts/check-postgres.mjs",
     "test:api": "node --test server/*.test.js server/**/*.test.js"
   },

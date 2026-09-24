@@ -168,6 +168,9 @@ Las capturas se guardan en `.visual-check/`. Las pruebas de PostgreSQL de
 
 ## Estructura
 
+La integración de Umami, el aislamiento DEV/PROD y las pruebas de recepción sin
+contaminar producción están documentados en [docs/analytics.md](docs/analytics.md).
+
 - `src/project-catalog.js`: catálogo comercial único con productos e importes.
 - `src/project-pricing.js`: normalización, recomendación y cálculo puro.
 - `presupuestos/src/ProjectConfigurator.jsx`: flujo comercial y revisión final.

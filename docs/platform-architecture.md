@@ -38,13 +38,18 @@ versión del catálogo utilizada y marca expresamente que el IVA no está inclui
 
 ## Privacidad
 
-No se cargan analítica, publicidad, píxeles ni rastreadores. El progreso técnico
-de la sesión no contiene nombre, empresa, email, teléfono ni observaciones. Los
-datos personales solo llegan al servidor en el envío final y no se escriben en
-los logs de aplicación.
+La analítica de visitas usa Umami autoalojado en Mercamicro, sin cookies del
+tracker, publicidad ni grabación de sesiones. Se carga una sola vez desde el
+HTML de cada aplicación, restringida mediante `data-domains` al dominio de
+producción correspondiente; DEV no genera visitas de producción. No se añaden
+eventos que incluyan respuestas del configurador ni datos de contacto.
 
-Si se incorpora analítica en el futuro, debe quedar detrás de una capa de
-consentimiento independiente; no se añadirá directamente a los componentes.
+El progreso técnico de la sesión no contiene nombre, empresa, email, teléfono
+ni observaciones. Estos datos del formulario solo llegan a la API comercial
+en el envío final y no se escriben en sus logs de aplicación. La URL y el
+referente forman parte de la analítica de visitas: no deben contener datos
+personales. Los detalles técnicos y las comprobaciones están en
+`docs/analytics.md`; esta descripción no sustituye la política de privacidad.
 
 ## Modificar la oferta
 

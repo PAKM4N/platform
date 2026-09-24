@@ -170,7 +170,7 @@ function FlowQuestion({ demo, state, setState, headingRef }) {
           </button>
         ) : (
           <span className="generic-demo-local-note">
-            <LockKeyhole size={14} /> Sin registro ni envío de datos
+            <LockKeyhole size={14} /> Sin registro ni envío de respuestas
           </span>
         )}
         <button

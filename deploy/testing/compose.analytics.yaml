@@ -1,0 +1,48 @@
+# Disposable acceptance-test fixture. Never use production env files or volumes.
+name: mercamicro-analytics-check
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    pull_policy: never
+    environment:
+      POSTGRES_USER: analytics_check
+      POSTGRES_PASSWORD: analytics-check-fixture-only
+      POSTGRES_DB: analytics_check
+    tmpfs:
+      - /var/lib/postgresql/data
+    networks: [analytics-check-backend]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U analytics_check -d analytics_check"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  umami:
+    # Exact image inspected on 2026-09-24: Umami 3.4.0.
+    image: docker.umami.is/umami-software/umami@sha256:85909afc45bdcda1917394594a087421fdbb05610fded0fa9f6fb861abb2f367
+    pull_policy: never
+    environment:
+      DATABASE_URL: postgresql://analytics_check:analytics-check-fixture-only@postgres:5432/analytics_check
+      APP_SECRET: umami-isolated-analytics-test-only-not-production
+      HOSTNAME: 0.0.0.0
+      DISABLE_TELEMETRY: "1"
+      DISABLE_UPDATES: "1"
+    ports:
+      - "127.0.0.1:18083:3000"
+    networks: [analytics-check-backend, analytics-check-access]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/api/heartbeat').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+networks:
+  analytics-check-backend:
+    internal: true
+  # Exclusive to this fixture, not attached to platform-edge or any PROD stack.
+  # Docker needs a non-internal bridge to expose the loopback-only test port.
+  analytics-check-access:

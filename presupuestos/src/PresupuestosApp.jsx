@@ -239,6 +239,7 @@ export default function PresupuestosApp() {
           <h2 id="budget-data-title">Tus datos, solo para tu solicitud.</h2>
           <p>Al enviar el formulario, Mercamicro recibe tus datos de contacto y las respuestas del proyecto para preparar y responder a tu solicitud. Puedes consultarnos sobre su tratamiento o pedir su eliminación en <a href="mailto:presupuestos@mercamicro.es">presupuestos@mercamicro.es</a>.</p>
           <p>El configurador conserva temporalmente tus selecciones en esta pestaña durante dos horas, sin guardar tus datos de contacto en el navegador. Esta web no utiliza cookies de analítica ni publicidad.</p>
+          <p>Utilizamos Umami, alojado por Mercamicro, para medir las visitas y la navegación. No enviamos a Umami las respuestas del configurador ni los datos de contacto.</p>
         </section>
       </main>
 
