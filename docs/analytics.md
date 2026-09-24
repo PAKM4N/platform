@@ -103,11 +103,47 @@ credenciales, volúmenes ni redes de producción. Solo publica el puerto 18083
 en loopback. Sus claves son de prueba y no deben reutilizarse. Al detenerlo se
 pierden sus eventos sintéticos; no se elimina ningún dato de producción.
 
-El modo de ingestión sustituye el origen del script **solo en el documento de
-prueba** para dirigirlo a ese fixture. Usa el navegador real para verificar
+El modo de ingestión sustituye el origen del script y permite el hostname local
+en `data-domains` **solo en el documento de prueba**, para dirigirlo a ese
+fixture. Esto evita que las restricciones de red privada del navegador bloqueen
+una conexión ficticia desde un dominio público hacia loopback. El contexto
+efímero de prueba concede el permiso de acceso a red local únicamente a ese
+origen local; no se desactiva CORS ni se cambia ninguna política de producción.
+Usa el navegador real para verificar
 preflight y POST cross-origin, respuesta 200 y eventos persistidos. El HTML
 normal de DEV se verifica por separado sin alteraciones ni excepciones a
 `data-domains`.
+
+### Resultados de aceptación — 24 de septiembre de 2026
+
+- Compilaciones de las dos webs y exportación Sites correctas; 69 pruebas de
+  API/cálculo/notificaciones superadas.
+- Pruebas visuales de ambas webs y 50 recorridos completos de demos/simuladores
+  correctos; comprobaciones de tamaños adicionales y recuperación del chat.
+- Tracker público cargado exactamente una vez en cada aplicación. Cero envíos
+  de DEV comprobados tanto en `localhost` como en `127.0.0.1`.
+- Orígenes de producción simulados: primera visita y navegación SPA, atrás y
+  adelante con sus referentes correctos, sin duplicados ni llamadas a Umami
+  por cambiar respuestas. Colector público interceptado en todos esos casos.
+- Ingestión real en el clon aislado: navegador sin errores CORS y cinco eventos
+  persistidos en PostgreSQL: dos en `/` y dos en `/demos/reservas` para Demos,
+  uno en `/` para Presupuestos. Cero eventos sintéticos enviados a producción.
+- Caddy candidato validado con la misma versión: script 200, preflight 204,
+  POST inválido 400 generado por Umami sin crear visitas y panel 403 en el
+  host público del tracker. Archivo activo y contenedores PROD sin cambios.
+
+### Archivos de esta integración
+
+- `index.html`, `presupuestos/index.html`: etiquetas del tracker.
+- `src/RouterApp.jsx`: compatibilidad atrás/adelante SPA.
+- `deploy/prod/Caddyfile`: rutas públicas, preflight y preservación del panel
+  privado/n8n actuales.
+- `presupuestos/src/PresupuestosApp.jsx`, `src/GenericDemoExperience.jsx`,
+  `docs/platform-architecture.md`: información coherente sobre visitas y
+  respuestas de formularios.
+- `scripts/check-analytics.mjs`, `scripts/start-analytics-check.sh`,
+  `deploy/testing/compose.analytics.yaml`, `package.json`: pruebas reproducibles.
+- `docs/analytics.md`, `README.md`: instrucciones, resultados y pendientes.
 
 ## Promoción
 
@@ -123,6 +159,19 @@ y configuración si fallan sus comprobaciones.
 Después de promover, verificar nuevamente script público, preflight desde
 ambos orígenes, aislamiento del panel y primera visita real en cada web. La
 ausencia de eventos al navegar DEV es el resultado esperado, no un fallo.
+
+### Mantenimiento detectado durante el build
+
+`npm audit --omit=dev` señaló avisos de seguridad en `nodemailer@9.0.6`, una
+dependencia de la API comercial **preexistente**: esta integración no cambia
+`package-lock.json` ni las versiones de las dependencias. Se recomienda una
+actualización separada a 9.1.1 o posterior y revalidar el correo antes de la
+siguiente promoción. No se ha ejecutado `npm audit fix` ni modificado SMTP.
+Los límites y validaciones actuales de destinatarios reducen la exposición;
+eso no sustituye aplicar los parches.
+
+Referencias del mantenedor: [DoS del parser de direcciones, corregido en 9.1.0](https://github.com/nodemailer/nodemailer/security/advisories/GHSA-2x7j-588g-ccc2)
+y [restricciones de archivos/URL en la API legacy, corregido en 9.1.1](https://github.com/nodemailer/nodemailer/security/advisories/GHSA-8m3c-c648-2xjj).
 
 Referencias: [configuración del tracker](https://docs.umami.is/docs/tracker-configuration)
 y [navegación SPA](https://docs.umami.is/docs/guides/track-single-page-apps).

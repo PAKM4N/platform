@@ -31,12 +31,12 @@ async function settle(page) {
   await page.waitForTimeout(750);
 }
 
-async function scriptContract(page, site, source = tracker) {
+async function scriptContract(page, site, source = tracker, domain = site.domain) {
   const script = page.locator("script[data-website-id]");
   assert.equal(await script.count(), 1, `${site.name}: un único tracker por documento`);
   assert.equal(await script.getAttribute("src"), source);
   assert.equal(await script.getAttribute("data-website-id"), site.id);
-  assert.equal(await script.getAttribute("data-domains"), site.domain);
+  assert.equal(await script.getAttribute("data-domains"), domain);
   assert.equal(await script.evaluate((element) => element.defer), true);
 }
 
@@ -84,9 +84,13 @@ async function checkDev(site, hostname) {
 
 async function checkVirtualProduction(site, ingest = false) {
   const context = await browser.newContext({ userAgent, reducedMotion: "reduce" });
-  // HTTP is used only for the virtual fixture to exercise real cross-origin
-  // browser preflights to localhost, without changing production certificates.
-  const origin = `${ingest ? "http" : "https"}://${site.domain}`;
+  // Real ingestion stays entirely in loopback address space. A virtual public
+  // origin accessing localhost is rejected by Chromium's private-network rules.
+  // Only the fixture document gets a local data-domains value; the unmodified
+  // DEV guard and production-host behaviour are checked separately above.
+  const origin = ingest ? new URL(site.dev).origin : `https://${site.domain}`;
+  const domain = new URL(origin).hostname;
+  if (ingest) await context.grantPermissions(["local-network-access"], { origin });
   const source = ingest ? `${fixture}/script.js` : tracker;
   const collection = ingest ? `${fixture}/api/send` : "https://stats.mercamicro.es/api/send";
   const events = [];
@@ -101,7 +105,9 @@ async function checkVirtualProduction(site, ingest = false) {
     const response = await route.fetch({ url: `${site.dev}${url.pathname}${url.search}` });
     if (ingest && request.resourceType() === "document") {
       // Test fixture only. The actual DEV HTML is checked unchanged above.
-      const body = (await response.text()).replace(`src="${tracker}"`, `src="${source}"`);
+      const body = (await response.text())
+        .replace(`src="${tracker}"`, `src="${source}"`)
+        .replace(`data-domains="${site.domain}"`, `data-domains="${domain}"`);
       await route.fulfill({ response, body });
     } else await route.fulfill({ response });
   });
@@ -124,22 +130,26 @@ async function checkVirtualProduction(site, ingest = false) {
   });
   const checkPageviews = async (paths) => {
     await settle(page);
-    assert.deepEqual(events.map(({ body }) => body.payload.url), paths);
+    assert.deepEqual(failures, [], "Sin errores de CORS ni de aplicación");
+    assert.deepEqual(events.map(({ body }) => {
+      const url = new URL(body.payload.url, origin);
+      assert.equal(url.origin, origin);
+      return `${url.pathname}${url.search}${url.hash}`;
+    }), paths);
     for (const { body, headers } of events) {
       assert.equal(body.type, "event");
       assert.equal(body.payload.website, site.id);
-      assert.equal(body.payload.hostname, site.domain);
+      assert.equal(body.payload.hostname, domain);
       assert.equal(headers["x-umami-website-id"], site.id);
-      assert.equal(headers["x-umami-hostname"], site.domain);
+      assert.equal(headers["x-umami-hostname"], domain);
       assert.equal(body.payload.data, undefined, "No se mandan respuestas ni datos de contacto");
     }
     assert.deepEqual(responses, paths.map(() => 200), "Todos los envíos son aceptados");
     assert.equal(scriptLoads, 1, "La navegación no recarga el tracker");
-    assert.deepEqual(failures, [], "Sin errores de CORS ni de aplicación");
   };
   try {
     await page.goto(origin, { waitUntil: "networkidle" });
-    await scriptContract(page, site, source);
+    await scriptContract(page, site, source, domain);
     await checkPageviews(["/"]);
     if (site.name === "demos") {
       await navigateDemo(page);
