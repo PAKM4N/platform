@@ -162,13 +162,10 @@ ausencia de eventos al navegar DEV es el resultado esperado, no un fallo.
 
 ### Mantenimiento detectado durante el build
 
-`npm audit --omit=dev` señaló avisos de seguridad en `nodemailer@9.0.6`, una
-dependencia de la API comercial **preexistente**: esta integración no cambia
-`package-lock.json` ni las versiones de las dependencias. Se recomienda una
-actualización separada a 9.1.1 o posterior y revalidar el correo antes de la
-siguiente promoción. No se ha ejecutado `npm audit fix` ni modificado SMTP.
-Los límites y validaciones actuales de destinatarios reducen la exposición;
-eso no sustituye aplicar los parches.
+La dependencia preexistente `nodemailer@9.0.6` se actualizó posteriormente a
+`9.1.1`, la versión de la misma rama que corrige los avisos detectados. La
+actualización se validó de forma independiente con las pruebas de la API y del
+adaptador SMTP antes de promoverla.
 
 Referencias del mantenedor: [DoS del parser de direcciones, corregido en 9.1.0](https://github.com/nodemailer/nodemailer/security/advisories/GHSA-2x7j-588g-ccc2)
 y [restricciones de archivos/URL en la API legacy, corregido en 9.1.1](https://github.com/nodemailer/nodemailer/security/advisories/GHSA-8m3c-c648-2xjj).
