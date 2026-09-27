@@ -51,7 +51,7 @@ demos.mercamicro.es {
 	}
 }
 
-mudanzasdelfin.mercamicro.es {
+mudanzasdelfin.es {
 	log {
 		output stdout
 		format json
@@ -65,6 +65,10 @@ mudanzasdelfin.mercamicro.es {
 			lb_try_duration 3s
 		}
 	}
+}
+
+www.mudanzasdelfin.es, mudanzasdelfin.mercamicro.es {
+	redir https://mudanzasdelfin.es{uri} permanent
 }
 
 # RECOGIDA PÚBLICA DE ESTADÍSTICAS
