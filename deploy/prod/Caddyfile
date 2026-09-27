@@ -67,7 +67,7 @@ mudanzasdelfin.es {
 	}
 }
 
-www.mudanzasdelfin.es, mudanzasdelfin.mercamicro.es {
+www.mudanzasdelfin.es {
 	redir https://mudanzasdelfin.es{uri} permanent
 }
 
