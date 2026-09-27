@@ -51,6 +51,22 @@ demos.mercamicro.es {
 	}
 }
 
+mudanzasdelfin.mercamicro.es {
+	log {
+		output stdout
+		format json
+	}
+
+	encode zstd gzip
+
+	handle {
+		reverse_proxy mudanzasdelfin-web:8080 {
+			health_uri /health
+			lb_try_duration 3s
+		}
+	}
+}
+
 # RECOGIDA PÚBLICA DE ESTADÍSTICAS
 stats.mercamicro.es {
 	log {
