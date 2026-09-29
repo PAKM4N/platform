@@ -18,6 +18,13 @@ set +a
 [[ "$(docker image inspect -f '{{.Id}}' "$DEMO_WEB_IMAGE")" == "$DEMO_WEB_ID" ]]
 [[ "$(docker image inspect -f '{{.Id}}' "$DEMO_API_IMAGE")" == "$DEMO_API_ID" ]]
 [[ "$(docker image inspect -f '{{.Id}}' "$BUDGET_WEB_IMAGE")" == "$BUDGET_WEB_ID" ]]
+[[ -n "${SERVICES_WEB_IMAGE:-}" && -n "${SERVICES_WEB_ID:-}" ]]
+[[ "$(docker image inspect -f '{{.Id}}' "$SERVICES_WEB_IMAGE")" == "$SERVICES_WEB_ID" ]]
+
+if ! getent ahostsv4 servicios.mercamicro.es >/dev/null; then
+  echo "Falta el DNS público de servicios.mercamicro.es; no se modifica producción." >&2
+  exit 1
+fi
 
 prod_release_dir="/srv/platform/prod/releases/${sha}"
 mkdir -p "$prod_release_dir"
@@ -50,6 +57,10 @@ previous_budget=""
 if docker inspect mercamicro-presupuestos-budget_web-1 >/dev/null 2>&1; then
   previous_budget="$(docker inspect -f '{{.Config.Image}}' mercamicro-presupuestos-budget_web-1)"
 fi
+previous_services=""
+if docker inspect mercamicro-presupuestos-services_web-1 >/dev/null 2>&1; then
+  previous_services="$(docker inspect -f '{{.Config.Image}}' mercamicro-presupuestos-services_web-1)"
+fi
 
 container_env() {
   docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' mercamicro-presupuestos-api-1 |
@@ -81,12 +92,13 @@ printf '%s\n' \
   "PREVIOUS_DEMO_WEB_IMAGE=${previous_web}" \
   "PREVIOUS_DEMO_API_IMAGE=${previous_api}" \
   "PREVIOUS_BUDGET_WEB_IMAGE=${previous_budget}" \
+  "PREVIOUS_SERVICES_WEB_IMAGE=${previous_services}" \
   "PREVIOUS_LEAD_NOTIFICATIONS_ENABLED=${previous_notifications_enabled:-false}" > "$prod_release_dir/previous.env"
 chmod 600 "$prod_release_dir/previous.env"
 
 docker run --rm -v "$repo_root/deploy/prod/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2.11.4-alpine caddy validate --config /etc/caddy/Caddyfile
 
-export DEMO_WEB_IMAGE DEMO_API_IMAGE BUDGET_WEB_IMAGE
+export DEMO_WEB_IMAGE DEMO_API_IMAGE BUDGET_WEB_IMAGE SERVICES_WEB_IMAGE
 compose_options=(
   -p mercamicro-presupuestos
   -f "$repo_root/deploy/prod/compose.yaml"
@@ -112,6 +124,12 @@ fi
 
 restore_previous_services() {
   export DEMO_WEB_IMAGE="$previous_web" DEMO_API_IMAGE="$previous_api"
+  if [[ -n "$previous_services" ]]; then
+    export SERVICES_WEB_IMAGE="$previous_services"
+  else
+    docker compose "${rollback_compose_options[@]}" stop services_web || true
+    docker compose "${rollback_compose_options[@]}" rm -f services_web || true
+  fi
   if [[ "$previous_notifications_enabled" == "true" ]]; then
     export LEAD_EMAIL_FROM="$previous_lead_email_from"
     export LEAD_EMAIL_TO="$previous_lead_email_to"
@@ -123,11 +141,18 @@ restore_previous_services() {
   fi
   if [[ -n "$previous_budget" ]]; then
     export BUDGET_WEB_IMAGE="$previous_budget"
-    docker compose "${rollback_compose_options[@]}" up -d --no-build --wait
+    if [[ -n "$previous_services" ]]; then
+      docker compose "${rollback_compose_options[@]}" up -d --no-build --wait
+    else
+      docker compose "${rollback_compose_options[@]}" up -d --no-build --wait api web budget_web
+    fi
   else
     docker compose "${rollback_compose_options[@]}" stop budget_web || true
     docker compose "${rollback_compose_options[@]}" rm -f budget_web || true
     docker compose "${rollback_compose_options[@]}" up -d --no-build --wait api web
+    if [[ -n "$previous_services" ]]; then
+      docker compose "${rollback_compose_options[@]}" up -d --no-build --wait services_web
+    fi
   fi
 }
 
@@ -147,7 +172,8 @@ fi
 tls_ready=false
 for attempt in {1..24}; do
   if curl --fail --silent --show-error --max-time 10 "https://demos.mercamicro.es/health" >/dev/null 2>&1 && \
-     curl --fail --silent --show-error --max-time 10 "https://presupuestos.mercamicro.es/" | grep -q "Webs y automatizaciones a medida"; then
+     curl --fail --silent --show-error --max-time 10 "https://presupuestos.mercamicro.es/" | grep -q "Webs y automatizaciones a medida" && \
+     curl --fail --silent --show-error --max-time 10 "https://servicios.mercamicro.es/" | grep -q "Servicios digitales e infraestructura"; then
     tls_ready=true
     break
   fi
@@ -168,6 +194,7 @@ project_lead_route_responds() {
 if [[ "$tls_ready" != true ]] || \
    ! "$repo_root/scripts/smoke-test.sh" "https://demos.mercamicro.es" || \
    ! curl --fail --silent --show-error "https://presupuestos.mercamicro.es/" | grep -q "Webs y automatizaciones a medida" || \
+   ! curl --fail --silent --show-error "https://servicios.mercamicro.es/" | grep -q "Servicios digitales e infraestructura" || \
    ! project_lead_route_responds; then
   echo "Falló el smoke test. Restaurando Caddy y las imágenes anteriores." >&2
   apply_caddy_file "$prod_release_dir/Caddyfile.before" || true

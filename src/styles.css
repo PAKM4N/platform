@@ -4888,6 +4888,23 @@ footer {
   font-weight: 800;
 }
 
+.portal-footer-links {
+  justify-self: end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 22px;
+}
+
+.portal-footer-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink);
+  font-weight: 800;
+}
+
+.portal-footer-links a:hover { color: #315bd8; }
+
 /* Compact sector entry: the calculator is the destination. */
 
 .simulator-cover {
@@ -5319,6 +5336,8 @@ footer {
   .portal-footer > a {
     justify-self: start;
   }
+
+  .portal-footer-links { justify-self: start; }
 
   .simulator-cover {
     min-height: 440px;

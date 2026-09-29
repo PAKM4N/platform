@@ -4,12 +4,14 @@ Plataforma con un configurador comercial y una biblioteca de automatizaciones
 interactivas. Las 18 demos de procesos reutilizan un único motor declarativo y
 conviven con los siete simuladores sectoriales detallados ya existentes.
 
-El repositorio contiene dos webs relacionadas:
+El repositorio contiene tres webs relacionadas:
 
 - `presupuestos.mercamicro.es`: web comercial para configurar webs, chatbots y
   automatizaciones según necesidades reales;
 - `demos.mercamicro.es`: biblioteca de 18 recorridos configurables, siete
   simuladores con cálculo detallado y chatbot sectorial operativo.
+- `servicios.mercamicro.es`: catálogo de infraestructura, Azure, almacenamiento,
+  servicios gestionados, alojamiento web, automatización y consultoría.
 
 El configurador comercial no expone una tabla ni obliga a escoger paquetes:
 pregunta por objetivos, funcionamiento, canales, extras, web y alojamiento. El
@@ -51,13 +53,15 @@ DEV. El gateway escucha inicialmente solo en `127.0.0.1:18080`; puede abrirse
 desde VS Code Remote SSH mediante un puerto reenviado. No comparte redes,
 volúmenes ni secretos con producción.
 
-DEV expone por el túnel dos puertos:
+DEV expone por el túnel tres puertos:
 
 - `18080`: biblioteca de demos, simuladores sectoriales y API;
 - `18081`: web comercial de presupuestos.
+- `18084`: catálogo de servicios (el puerto `18083` se reserva a una prueba
+  aislada de analítica).
 
-Desde la ventana Remote SSH, abre el panel `Puertos`, reenvía `18080` y `18081`
-y visita ambas direcciones en el navegador del PC. El tráfico viaja por el túnel
+Desde la ventana Remote SSH, abre el panel `Puertos`, reenvía `18080`, `18081` y
+`18084` y visita las tres direcciones en el navegador del PC. El tráfico viaja por el túnel
 SSH existente y los puertos HTTP no quedan expuestos en la LAN ni en Internet.
 
 `scripts/validate-isolation.sh` rechaza referencias conocidas de producción
@@ -149,6 +153,13 @@ npm run build:presupuestos
 VISUAL_CHECK_URL=http://127.0.0.1:18081 npm run check:visual:presupuestos
 ```
 
+El catálogo de servicios se compila y comprueba de forma independiente:
+
+```bash
+npm run build:servicios
+VISUAL_CHECK_URL=http://127.0.0.1:18084 npm run check:visual:servicios
+```
+
 La revisión completa de UX recorre las 18 demos y los 7 simuladores en escritorio
 y móvil, comprueba tamaños de pantalla adicionales y prueba errores, edición,
 retroceso y el chat sin almacenamiento. Con DEV en los puertos habituales:
@@ -174,6 +185,7 @@ contaminar producción están documentados en [docs/analytics.md](docs/analytics
 - `src/project-catalog.js`: catálogo comercial único con productos e importes.
 - `src/project-pricing.js`: normalización, recomendación y cálculo puro.
 - `presupuestos/src/ProjectConfigurator.jsx`: flujo comercial y revisión final.
+- `servicios/src/ServiciosApp.jsx`: catálogo público de servicios y navegación.
 - `src/demo-catalog.js`: configuración declarativa de las 18 demos.
 - `src/demo-flow-engine.js`: navegación, validación, edición y resumen compartidos.
 - `src/GenericDemoExperience.jsx`: interfaz común de los recorridos configurables.
@@ -195,11 +207,12 @@ datos personales o confidenciales.
 
 ## Despliegue en la plataforma Mercamicro
 
-`deploy/prod/compose.yaml` ejecuta tres servicios sin publicar sus puertos en el
+`deploy/prod/compose.yaml` ejecuta cuatro servicios sin publicar sus puertos en el
 host:
 
 - `web`, con la biblioteca de demos;
 - `budget_web`, con la web comercial;
+- `services_web`, con el catálogo de servicios;
 - `api`, conectado a PostgreSQL por la red interna.
 
 Los servicios se conectan a las redes externas `platform-edge` y
@@ -211,6 +224,12 @@ permanece desactivado hasta disponer de remitente, destinatario y SMTP.
 
 La publicación normal sigue el flujo de candidata: construir una vez, validar
 las mismas imágenes en DEV y promocionar únicamente con confirmación explícita.
+Antes de promocionar por primera vez el catálogo, `servicios.mercamicro.es` debe
+resolver en DNS hacia el servidor público, igual que `demos.mercamicro.es` y
+`presupuestos.mercamicro.es`. La zona usa los servidores DNS de Dinahosting;
+crea un registro A para `servicios` con la IP pública actual de esos dos
+subdominios. El script de promoción comprueba la resolución antes de modificar
+producción.
 La configuración activa nunca se edita directamente.
 
 ## Publicación estática heredada en Dinahosting

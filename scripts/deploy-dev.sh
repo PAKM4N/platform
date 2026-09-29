@@ -32,6 +32,8 @@ docker compose -f "$compose_file" up -d --no-build --no-deps --force-recreate --
 "${repo_root}/scripts/smoke-test.sh" "http://127.0.0.1:${DEV_HTTP_PORT:-18080}"
 curl --fail --silent --show-error "http://127.0.0.1:${DEV_BUDGET_HTTP_PORT:-18081}/health" >/dev/null
 curl --fail --silent --show-error "http://127.0.0.1:${DEV_BUDGET_HTTP_PORT:-18081}/" | grep -q "Webs y automatizaciones a medida"
+curl --fail --silent --show-error "http://127.0.0.1:${DEV_SERVICES_HTTP_PORT:-18084}/health" >/dev/null
+curl --fail --silent --show-error "http://127.0.0.1:${DEV_SERVICES_HTTP_PORT:-18084}/" | grep -q "Servicios digitales e infraestructura"
 lead_options_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
   --request OPTIONS \
   --header "Origin: http://127.0.0.1:${DEV_BUDGET_HTTP_PORT:-18081}" \
@@ -45,3 +47,4 @@ test "$lead_options_status" = 204 || {
 echo "DEV desplegado con etiqueta ${DEV_IMAGE_TAG}."
 echo "Demo: http://127.0.0.1:${DEV_HTTP_PORT:-18080}"
 echo "Presupuestos: http://127.0.0.1:${DEV_BUDGET_HTTP_PORT:-18081}"
+echo "Servicios: http://127.0.0.1:${DEV_SERVICES_HTTP_PORT:-18084}"

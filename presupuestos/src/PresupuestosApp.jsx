@@ -16,6 +16,7 @@ import {
 import ProjectConfigurator from "./ProjectConfigurator";
 
 const DEMO_URL = "https://demos.mercamicro.es";
+const SERVICES_URL = "https://servicios.mercamicro.es";
 
 function Brand() {
   return (
@@ -113,6 +114,7 @@ export default function PresupuestosApp() {
           <a href="#solucion">Cómo trabajamos</a>
           <a href="#configurador">Configura tu proyecto</a>
           <a href="#web-completa">Web completa</a>
+          <a href={SERVICES_URL}>Servicios</a>
           <a className="demo-link" href={DEMO_URL}>Ver demos <ArrowRight size={14} /></a>
         </nav>
       </header>
@@ -246,6 +248,7 @@ export default function PresupuestosApp() {
       <footer className="budget-footer">
         <Brand />
         <a href="mailto:presupuestos@mercamicro.es">Hablemos de tu proyecto</a>
+        <a href={SERVICES_URL}>Todos los servicios <ArrowRight size={14} /></a>
         <a href={DEMO_URL}>Ver demos <ArrowRight size={14} /></a>
       </footer>
     </div>

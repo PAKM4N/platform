@@ -54,6 +54,7 @@ function PortalHeader() {
         <a href="#biblioteca-demos">Demos</a>
         <a href="#sectores">Simuladores sectoriales</a>
         <a href="#bots">Bots para mensajería</a>
+        <a href="https://servicios.mercamicro.es">Todos los servicios</a>
         <a href="https://presupuestos.mercamicro.es">Cuéntanos tu proyecto</a>
       </nav>
       <a className="portal-header-action" href="#biblioteca-demos">
@@ -326,9 +327,10 @@ export default function HomeExperience() {
       <footer className="portal-footer">
         <Brand />
         <span>Soluciones digitales a medida · Demo interactiva</span>
-        <a href="https://presupuestos.mercamicro.es">
-          Configura tu proyecto <ArrowRight size={14} />
-        </a>
+        <div className="portal-footer-links">
+          <a href="https://servicios.mercamicro.es">Todos los servicios <ArrowRight size={14} /></a>
+          <a href="https://presupuestos.mercamicro.es">Configura tu proyecto <ArrowRight size={14} /></a>
+        </div>
       </footer>
     </div>
   );

@@ -51,6 +51,22 @@ demos.mercamicro.es {
 	}
 }
 
+servicios.mercamicro.es {
+	log {
+		output stdout
+		format json
+	}
+
+	encode zstd gzip
+
+	handle {
+		reverse_proxy mercamicro-presupuestos-services-web:8080 {
+			health_uri /health
+			lb_try_duration 3s
+		}
+	}
+}
+
 mudanzasdelfin.es {
 	log {
 		output stdout

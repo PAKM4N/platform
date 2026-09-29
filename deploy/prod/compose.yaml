@@ -33,6 +33,22 @@ services:
       retries: 5
       start_period: 10s
 
+  services_web:
+    image: ${SERVICES_WEB_IMAGE:?Define SERVICES_WEB_IMAGE}
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      edge:
+        aliases:
+          - mercamicro-presupuestos-services-web
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:8080/health | grep -qx ok"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   api:
     image: ${DEMO_API_IMAGE:?Define DEMO_API_IMAGE}
     restart: unless-stopped

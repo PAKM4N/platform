@@ -26,10 +26,12 @@ mkdir -p "$release_dir"
 docker build --pull=false -f Dockerfile.web -t "mercamicro/presupuestos-web:${tag}" .
 docker build --pull=false -f Dockerfile.api -t "mercamicro/presupuestos-api:${tag}" .
 docker build --pull=false -f Dockerfile.presupuestos -t "mercamicro/presupuestos-marketing:${tag}" .
+docker build --pull=false -f Dockerfile.servicios -t "mercamicro/presupuestos-services:${tag}" .
 
 demo_web_id="$(docker image inspect -f '{{.Id}}' "mercamicro/presupuestos-web:${tag}")"
 api_id="$(docker image inspect -f '{{.Id}}' "mercamicro/presupuestos-api:${tag}")"
 budget_web_id="$(docker image inspect -f '{{.Id}}' "mercamicro/presupuestos-marketing:${tag}")"
+services_web_id="$(docker image inspect -f '{{.Id}}' "mercamicro/presupuestos-services:${tag}")"
 
 printf '%s\n' \
   "GIT_SHA=${sha}" \
@@ -39,7 +41,9 @@ printf '%s\n' \
   "DEMO_API_IMAGE=mercamicro/presupuestos-api:${tag}" \
   "DEMO_API_ID=${api_id}" \
   "BUDGET_WEB_IMAGE=mercamicro/presupuestos-marketing:${tag}" \
-  "BUDGET_WEB_ID=${budget_web_id}" > "${release_dir}/release.env"
+  "BUDGET_WEB_ID=${budget_web_id}" \
+  "SERVICES_WEB_IMAGE=mercamicro/presupuestos-services:${tag}" \
+  "SERVICES_WEB_ID=${services_web_id}" > "${release_dir}/release.env"
 chmod 600 "${release_dir}/release.env"
 
 echo "Candidata construida: ${sha}"
