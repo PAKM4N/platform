@@ -1,10 +1,12 @@
 # Arquitectura modular de Mercamicro
 
-La plataforma mantiene dos experiencias web separadas, pero comparte los
+La plataforma mantiene tres experiencias web separadas, pero comparte los
 módulos de dominio que deben producir resultados idénticos en navegador y API:
 
 - `presupuestos.mercamicro.es`: configurador comercial y captación de leads.
 - `demos.mercamicro.es`: biblioteca de demostraciones interactivas.
+- `servicios.mercamicro.es`: catálogo público de servicios, con contacto por
+  correo y enlaces a las otras experiencias; no envía formularios a la API.
 
 ## Límites de los módulos
 

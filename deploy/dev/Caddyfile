@@ -28,3 +28,11 @@
 		reverse_proxy budget_web:8080
 	}
 }
+
+:8082 {
+	respond /health "ok" 200
+
+	handle {
+		reverse_proxy services_web:8080
+	}
+}

@@ -8,6 +8,7 @@
 **/secrets/
 dist
 dist-presupuestos
+dist-servicios
 node_modules
 npm-debug.log*
 server/**/*.test.js

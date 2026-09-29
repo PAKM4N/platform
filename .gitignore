@@ -1,6 +1,7 @@
 node_modules
 dist
 dist-presupuestos
+dist-servicios
 .next
 .vinext
 next-env.d.ts
