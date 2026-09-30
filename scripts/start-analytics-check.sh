@@ -27,7 +27,8 @@ docker compose -f "$fixture_file" -p "$fixture_project" exec -T postgres \
   psql -X -v ON_ERROR_STOP=1 -U analytics_check -d analytics_check <<'SQL'
 INSERT INTO website (website_id, name, domain) VALUES
   ('c244e78e-b481-4675-a1b4-e27f3c7585e3', 'Fixture Demos', 'demos.mercamicro.es'),
-  ('9831d3ca-7211-4561-b68d-f934411deb74', 'Fixture Presupuestos', 'presupuestos.mercamicro.es');
+  ('9831d3ca-7211-4561-b68d-f934411deb74', 'Fixture Presupuestos', 'presupuestos.mercamicro.es'),
+  ('e7d4b4ed-1489-45df-a7e3-ec0338c46183', 'Fixture Servicios', 'servicios.mercamicro.es');
 SELECT count(*) AS applied_migrations FROM _prisma_migrations WHERE finished_at IS NOT NULL;
 SELECT website_id, domain, recorder_enabled FROM website ORDER BY domain;
 SELECT count(*) AS initial_events FROM website_event;

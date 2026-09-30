@@ -5,6 +5,7 @@ const tracker = "https://stats.mercamicro.es/script.js";
 const sites = [
   { name: "demos", domain: "demos.mercamicro.es", id: "c244e78e-b481-4675-a1b4-e27f3c7585e3", dev: process.env.DEMOS_CHECK_URL || "http://127.0.0.1:18080" },
   { name: "presupuestos", domain: "presupuestos.mercamicro.es", id: "9831d3ca-7211-4561-b68d-f934411deb74", dev: process.env.BUDGET_CHECK_URL || "http://127.0.0.1:18081" },
+  { name: "servicios", domain: "servicios.mercamicro.es", id: "e7d4b4ed-1489-45df-a7e3-ec0338c46183", dev: process.env.SERVICES_CHECK_URL || "http://127.0.0.1:18084" },
 ];
 // Optional real ingestion is allowed ONLY in the disposable local Umami fixture.
 // Production hosts are virtual browser origins: all their documents/assets come
@@ -68,9 +69,11 @@ async function checkDev(site, hostname) {
       await navigateDemo(page);
       await settle(page);
       await page.goBack();
-    } else {
+    } else if (site.name === "presupuestos") {
       await page.getByRole("button", { name: "Preparar presupuestos", exact: true }).click();
       await page.getByRole("button", { name: /^Continuar/ }).click();
+    } else {
+      await page.locator("#tab-automatizacion").click();
     }
     await settle(page);
     assert.deepEqual(scripts, [200], `${site.name}: script descargado una sola vez`);
@@ -166,11 +169,16 @@ async function checkVirtualProduction(site, ingest = false) {
       await page.getByRole("radio", { name: "Una actividad", exact: true }).click();
       await page.getByRole("button", { name: "Continuar", exact: true }).click();
       await checkPageviews(["/", "/demos/reservas", "/", "/demos/reservas"]);
-    } else {
+    } else if (site.name === "presupuestos") {
       await page.getByRole("button", { name: "Preparar presupuestos", exact: true }).click();
       await page.getByRole("button", { name: /^Continuar/ }).click();
       await page.getByRole("heading", { name: "¿Cómo debería trabajar la solución?", exact: true }).waitFor();
       await checkPageviews(["/"]);
+    } else {
+      await page.locator("#tab-automatizacion").click();
+      await checkPageviews(["/", "/#automatizacion"]);
+      await page.locator("#tab-webs").click();
+      await checkPageviews(["/", "/#automatizacion", "/#webs"]);
     }
     assert.equal((await context.cookies()).length, 0, "El tracker no crea cookies");
     if (site.name === "demos") assert.ok(events[1].headers["x-umami-cache"], "Se comprueba también el envío posterior con caché");
@@ -189,9 +197,11 @@ async function checkTrackerUnavailable(site) {
   try {
     await page.goto(site.dev, { waitUntil: "networkidle" });
     if (site.name === "demos") await navigateDemo(page);
-    else {
+    else if (site.name === "presupuestos") {
       await page.getByRole("button", { name: "Preparar presupuestos", exact: true }).click();
       await page.getByRole("button", { name: /^Continuar/ }).click();
+    } else {
+      await page.locator("#tab-webs").click();
     }
     assert.deepEqual(failures, [], "Una caída/bloqueo del tracker no rompe la web");
   } finally {

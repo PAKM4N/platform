@@ -10,6 +10,7 @@ manuales a `umami.track()` para cada render.
 | --- | --- | --- | --- |
 | Demos | `index.html` | `c244e78e-b481-4675-a1b4-e27f3c7585e3` | `demos.mercamicro.es` |
 | Presupuestos | `presupuestos/index.html` | `9831d3ca-7211-4561-b68d-f934411deb74` | `presupuestos.mercamicro.es` |
+| Servicios | `servicios/index.html` | `e7d4b4ed-1489-45df-a7e3-ec0338c46183` | `servicios.mercamicro.es` |
 
 El origen del tracker es `https://stats.mercamicro.es/script.js`. `data-domains`
 compara el hostname exacto: localhost, IP y otros subdominios no registran visitas.
@@ -18,7 +19,7 @@ pueden promover de DEV a PROD, sin cambiar el HTML ni reconstruirlas.
 
 La versión instalada comprobada el 24 de septiembre de 2026 es **Umami 3.4.0**,
 imagen `sha256:85909afc45bdcda1917394594a087421fdbb05610fded0fa9f6fb861abb2f367`.
-Los dos registros de website existen, con sus dominios correctos y grabación de
+Los tres registros de website existen, con sus dominios correctos y grabación de
 sesiones desactivada. No se instrumentan campos, respuestas, contactos ni
 envíos de formularios. El tracker no usa cookies; las URL y referentes sí forman
 parte de sus pageviews y no deben contener datos personales.
@@ -69,7 +70,7 @@ sustituye una comprobación independiente desde una conexión WAN ajena al host.
 
 ## Pruebas reproducibles
 
-Con la candidata desplegada en DEV en 18080/18081:
+Con la candidata desplegada en DEV en 18080/18081/18084:
 
 ```sh
 docker build -f deploy/testing/Dockerfile.browser -t mercamicro/ux-browser:local .
@@ -132,9 +133,19 @@ normal de DEV se verifica por separado sin alteraciones ni excepciones a
   POST inválido 400 generado por Umami sin crear visitas y panel 403 en el
   host público del tracker. Archivo activo y contenedores PROD sin cambios.
 
+### Incorporación de Servicios — 30 de septiembre de 2026
+
+- `servicios.mercamicro.es` tiene un website independiente en Umami, con su
+  dominio exacto y grabación de sesiones desactivada.
+- DEV carga una sola copia del tracker y no envía eventos desde localhost ni
+  desde `127.0.0.1`.
+- El fixture aislado recibió tres pageviews: `/`, `/#automatizacion` y
+  `/#webs`. Así se distinguen las áreas consultadas sin instrumentar campos,
+  correos ni formularios.
+
 ### Archivos de esta integración
 
-- `index.html`, `presupuestos/index.html`: etiquetas del tracker.
+- `index.html`, `presupuestos/index.html`, `servicios/index.html`: etiquetas del tracker.
 - `src/RouterApp.jsx`: compatibilidad atrás/adelante SPA.
 - `deploy/prod/Caddyfile`: rutas públicas, preflight y preservación del panel
   privado/n8n actuales.
