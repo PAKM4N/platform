@@ -20,35 +20,33 @@ try {
     await page.goto(baseUrl, { waitUntil: "networkidle" });
     assert.equal(await page.getByRole("heading", { level: 1 }).count(), 1);
     assert.equal(await page.locator("main").count(), 1);
-    assert.equal(await page.locator(".service-card").count(), 16);
-    assert.equal(await page.locator(".service-card h3").allTextContents().then((titles) => new Set(titles).size), 16);
+    assert.equal(await page.locator(".hero-index > a").count(), 3);
+    assert.equal(await page.locator(".model-section").count(), 3);
+    assert.equal(await page.locator(".offering-list li").count(), 14);
+    assert.ok(await page.getByRole("heading", { name: /Alojamiento y gestión de sistemas operativos y servicios/ }).isVisible());
+    assert.ok(await page.getByRole("heading", { name: /Automatización de procesos y consultoría/ }).isVisible());
+    assert.ok(await page.getByRole("heading", { name: /Diseño de páginas web y chatbots/ }).isVisible());
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `${width}px: desbordamiento horizontal`);
     assert.ok(await page.locator(".services-brand img").first().evaluate((image) => image.complete && image.naturalWidth > 0));
     assert.equal(await page.locator('a[href="https://presupuestos.mercamicro.es"]').count() > 0, true);
     assert.equal(await page.locator('a[href="https://demos.mercamicro.es"]').count() > 0, true);
+    await page.screenshot({ path: `${outputDir}/servicios-top-${width}.png` });
 
-    await page.getByRole("button", { name: "Azure", exact: true }).click();
-    assert.equal(await page.locator(".service-card").count(), 2);
-    assert.equal(await page.getByRole("button", { name: "Azure", exact: true }).getAttribute("aria-pressed"), "true");
-    await page.getByRole("button", { name: "Todos", exact: true }).click();
-    await page.getByRole("searchbox", { name: "Buscar servicios" }).fill("copias");
-    assert.ok((await page.locator(".service-card").count()) > 0);
-    await page.getByRole("searchbox", { name: "Buscar servicios" }).fill("sin-resultados-xyz");
-    await page.getByRole("heading", { name: "No encontramos ese servicio." }).waitFor();
-    await page.getByRole("button", { name: /Ver todos los servicios/ }).click();
-    assert.equal(await page.locator(".service-card").count(), 16);
+    await page.locator(".hero-index").getByRole("link", { name: /Procesos/ }).click();
+    assert.equal(new URL(page.url()).hash, "#automatizacion");
 
     if (width <= 768) {
       await page.getByRole("button", { name: "Abrir menú" }).click();
       assert.equal(await page.getByRole("button", { name: "Cerrar menú" }).getAttribute("aria-expanded"), "true");
-      await page.locator("#services-nav").getByRole("link", { name: "Cómo trabajamos" }).click();
+      await page.locator("#services-nav").getByRole("link", { name: "Webs y chatbots" }).click();
       assert.equal(await page.getByRole("button", { name: "Abrir menú" }).getAttribute("aria-expanded"), "false");
+      assert.equal(new URL(page.url()).hash, "#webs");
     }
-    await page.getByText("¿Puedo contratar solo una parte?").click();
+    await page.getByText("¿Puedo contratar una sola línea de servicio?").click();
     assert.equal(await page.locator(".faq-list details").first().getAttribute("open"), "");
     await page.screenshot({ path: `${outputDir}/servicios-${width}.png`, fullPage: true });
     await page.close();
-    console.log(`Servicios ${width}px: catálogo, búsqueda, navegación y FAQ OK.`);
+    console.log(`Servicios ${width}px: tres líneas, navegación y FAQ OK.`);
   }
   assert.deepEqual(errors, []);
 } finally {
