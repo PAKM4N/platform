@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, ArrowUpRight, ChevronDown, Menu, X } from "lucide-react";
+import { Activity, ArrowDown, ArrowRight, ArrowUpRight, ChartNoAxesCombined, ChevronDown, Cloud, Compass, Globe, HardDrive, LayoutTemplate, Menu, MessagesSquare, Network, Plug, Search, Server, Workflow, Wrench, X } from "lucide-react";
+import { AreaArtwork, HeroArtwork } from "./ServiceArtwork.jsx";
 
 const BUDGET_URL = "https://presupuestos.mercamicro.es";
 const DEMOS_URL = "https://demos.mercamicro.es";
@@ -74,6 +75,12 @@ const FAQ = [
   ["¿Cómo preparáis una propuesta?", "Revisamos tu situación y lo que necesitas resolver. Después definimos el trabajo, las responsabilidades y los costes. El configurador ofrece una primera orientación para webs y automatizaciones."],
   ["¿Y después de la puesta en marcha?", "Podemos acordar mantenimiento, soporte y evolución. Qué se cubre y en qué condiciones queda definido en la propuesta."],
 ];
+
+const SERVICE_ICONS = {
+  sistemas: [Server, HardDrive, Cloud, Globe, Network, Activity],
+  automatizacion: [Workflow, Plug, Compass, ChartNoAxesCombined],
+  webs: [LayoutTemplate, MessagesSquare, Search, Wrench],
+};
 
 function selectedFromHash() {
   const id = window.location.hash.slice(1);
@@ -157,24 +164,35 @@ export default function ServiciosApp() {
       </header>
 
       <main id="contenido" tabIndex="-1">
-        <section className="services-hero shell" aria-labelledby="hero-title">
-          <div className="hero-title-block"><p className="eyebrow">Mercamicro · Servicios para empresas</p><h1 id="hero-title">Sistemas, automatización y desarrollo web.</h1></div>
-          <div className="hero-intro"><p>Alojamos y administramos servicios, conectamos las herramientas de tu equipo y diseñamos páginas web y chatbots.</p><a href="#contacto" className="text-link">Hablemos de lo que necesitas <ArrowUpRight size={18} /></a></div>
+        <section className="hero-section" aria-labelledby="hero-title">
+          <div className="services-hero shell">
+            <div className="hero-title-block">
+              <p className="eyebrow"><span className="eyebrow-mark" aria-hidden="true" />Servicios tecnológicos para empresas</p>
+              <h1 id="hero-title">Sistemas,<br />automatización<br />y <span>desarrollo web.</span></h1>
+              <p className="hero-description">Alojamos tus servicios, conectamos las herramientas de tu equipo y damos forma a tu presencia digital.</p>
+              <div className="hero-actions"><a href="#servicios" className="button-light">Descubre los servicios <ArrowDown size={18} /></a><a href="#contacto" className="hero-contact">Hablemos de tu proyecto <ArrowUpRight size={17} /></a></div>
+            </div>
+            <HeroArtwork />
+          </div>
+          <div className="hero-baseline shell"><span>Desde la infraestructura hasta la experiencia de tus clientes.</span><a href="#demostraciones">Mira lo que hacemos <ArrowDown size={15} /></a></div>
         </section>
 
         <section className="service-browser shell" id="servicios" aria-label="Nuestras tres líneas de servicio">
+          <div className="section-heading"><div><p className="eyebrow">Qué hacemos</p><h2>Tres áreas para hacer<br className="desktop-break" /> avanzar tu proyecto.</h2></div><p>Empieza por lo que necesitas.<br />Podemos combinar varias áreas en una misma propuesta.</p></div>
           <div className="service-tabs" role="tablist" aria-label="Elige un área de servicio" aria-orientation={verticalTabs ? "vertical" : "horizontal"}>
             {AREAS.map((area, index) => (
-              <button key={area.id} ref={(element) => { tabRefs.current[index] = element; }} type="button" id={"tab-" + area.id} role="tab" aria-selected={activeArea === area.id} aria-controls={area.id} tabIndex={activeArea === area.id ? 0 : -1} onClick={() => selectArea(area.id)} onKeyDown={(event) => moveTab(event, index)}>
-                <span className="service-tab-name">{area.name}<ArrowRight size={19} /></span><span className="service-tab-summary">{area.summary}</span>
+              <button key={area.id} data-area={area.id} ref={(element) => { tabRefs.current[index] = element; }} type="button" id={"tab-" + area.id} role="tab" aria-selected={activeArea === area.id} aria-controls={area.id} tabIndex={activeArea === area.id ? 0 : -1} onClick={() => selectArea(area.id)} onKeyDown={(event) => moveTab(event, index)}>
+                <AreaArtwork area={area.id} />
+                <span className="service-tab-copy"><span className="service-tab-name">{area.name}</span><span className="service-tab-summary">{area.summary}</span></span>
+                <span className="service-tab-action" aria-hidden="true">{activeArea === area.id ? "Servicios de esta área" : "Explorar servicios"}<ArrowRight size={18} /></span>
               </button>
             ))}
           </div>
           {AREAS.map((area) => (
-            <div key={area.id} id={area.id} className="service-panel" role="tabpanel" aria-labelledby={"tab-" + area.id} hidden={activeArea !== area.id} tabIndex="0">
+            <div key={area.id} data-area={area.id} id={area.id} className="service-panel" role="tabpanel" aria-labelledby={"tab-" + area.id} hidden={activeArea !== area.id} tabIndex="0">
               <div className="service-content">
                 <h2>{area.title}</h2><p className="service-description">{area.description}</p>
-                <ul className="capability-list">{area.services.map(([name, description]) => <li key={name}><h3>{name}</h3><p>{description}</p></li>)}</ul>
+                <ul className="capability-list">{area.services.map(([name, description], index) => { const Icon = SERVICE_ICONS[area.id][index]; return <li key={name}><span className="capability-icon"><Icon size={19} aria-hidden="true" /></span><div><h3>{name}</h3><p>{description}</p></div></li>; })}</ul>
               </div>
               <aside className="service-aside">
                 <span className="aside-label">{area.note}</span><h3>{area.asideTitle}</h3>
@@ -184,13 +202,12 @@ export default function ServiciosApp() {
               </aside>
             </div>
           ))}
-          <div className="browser-footnote"><span>¿Tu proyecto necesita varias áreas?</span> Podemos definirlas en una misma propuesta.</div>
         </section>
 
         <section className="work-section" id="demostraciones" aria-labelledby="work-title">
           <div className="work-layout shell">
-            <div className="work-copy"><p className="eyebrow">Desarrollado por Mercamicro</p><h2 id="work-title">Prueba nuestras demos.</h2><p>Reservas, consultas y presupuestos. Nuestras demos te permiten recorrer una solución como lo haría tu cliente.</p><a className="button-light" href={DEMOS_URL}>Explorar las demos <ArrowUpRight size={18} /></a><p className="work-note">Ejemplos interactivos con datos ficticios.<br />Sin registro ni envíos reales.</p></div>
-            <figure className="work-preview"><a href={DEMO_QUOTE_URL} aria-label="Probar la demo de solicitud de presupuestos"><picture><source media="(max-width: 620px)" srcSet="/services-demo-presupuesto-mobile.png" width="696" height="1432" /><img src="/services-demo-presupuesto.png" alt="Pantalla real de la demo de solicitud de presupuestos de Mercamicro" width="1080" height="644" loading="lazy" /></picture></a><figcaption><span>Solicitud de presupuestos <small>Demo interactiva</small></span><a href={DEMO_QUOTE_URL}>Probar <ArrowUpRight size={16} /></a></figcaption></figure>
+            <div className="work-copy"><p className="eyebrow">Desarrollado por Mercamicro</p><h2 id="work-title">Mejor verlo<br /><span>en funcionamiento.</span></h2><p>Reservas, consultas y presupuestos. Recorre nuestras demos como lo haría tu cliente y descubre qué podríamos crear para tu empresa.</p><a className="button-primary" href={DEMOS_URL}>Explorar las demos <ArrowUpRight size={18} /></a><p className="work-note">Ejemplos interactivos con datos ficticios.<br />Sin registro ni envíos reales.</p></div>
+            <figure className="work-preview"><a href={DEMO_QUOTE_URL} aria-label="Probar la demo de solicitud de presupuestos"><div className="preview-bar" aria-hidden="true"><span className="preview-dots"><i /><i /><i /></span><span>demos.mercamicro.es</span><ArrowUpRight size={14} /></div><picture><source media="(max-width: 620px)" srcSet="/services-demo-presupuesto-mobile.png" width="696" height="1432" /><img src="/services-demo-presupuesto.png" alt="Pantalla real de la demo de solicitud de presupuestos de Mercamicro" width="1080" height="644" loading="lazy" /></picture></a><figcaption><span>Solicitud de presupuestos <small>Demo interactiva</small></span><a href={DEMO_QUOTE_URL}>Probar <ArrowUpRight size={16} /></a></figcaption></figure>
           </div>
         </section>
 
