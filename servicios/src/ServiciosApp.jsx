@@ -191,13 +191,12 @@ export default function ServiciosApp() {
           {AREAS.map((area) => (
             <div key={area.id} data-area={area.id} id={area.id} className="service-panel" role="tabpanel" aria-labelledby={"tab-" + area.id} hidden={activeArea !== area.id} tabIndex="0">
               <div className="service-content">
-                <h2>{area.title}</h2><p className="service-description">{area.description}</p>
+                <div className="service-intro"><span className="service-intro-mark" aria-hidden="true" /><h2>{area.title}</h2><p className="service-description">{area.description}</p></div>
                 <ul className="capability-list">{area.services.map(([name, description], index) => { const Icon = SERVICE_ICONS[area.id][index]; return <li key={name}><span className="capability-icon"><Icon size={19} aria-hidden="true" /></span><div><h3>{name}</h3><p>{description}</p></div></li>; })}</ul>
               </div>
               <aside className="service-aside">
-                <span className="aside-label">{area.note}</span><h3>{area.asideTitle}</h3>
-                {area.asideText && <p>{area.asideText}</p>}
-                {area.steps && <ol className="process-example">{area.steps.map((step) => <li key={step}>{step}</li>)}</ol>}
+                <div className="aside-heading"><span className="aside-label">{area.note}</span><h3>{area.asideTitle}</h3></div>
+                <div className="aside-detail">{area.asideText && <p>{area.asideText}</p>}{area.steps && <ol className="process-example">{area.steps.map((step) => <li key={step}>{step}</li>)}</ol>}</div>
                 <div className="aside-bottom"><p>{area.scope}</p><a className="button-primary" href={area.href}>{area.action}<ArrowUpRight size={17} /></a></div>
               </aside>
             </div>
