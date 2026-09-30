@@ -9,6 +9,6 @@ COPY vite.servicios.config.js ./vite.servicios.config.js
 RUN npx vite build --config vite.servicios.config.js
 
 FROM caddy:2.11.4-alpine
-COPY deploy/web.Caddyfile /etc/caddy/Caddyfile
+COPY deploy/servicios.Caddyfile /etc/caddy/Caddyfile
 COPY --from=build /app/dist-servicios /srv
 EXPOSE 8080
