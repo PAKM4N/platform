@@ -114,7 +114,7 @@ h1, h2 { text-wrap: balance; }
 .work-copy > p:not(.eyebrow) { max-width: 360px; margin-bottom: 27px; color: #52647f; font-size: 14px; line-height: 1.85; }
 .work-copy .button-primary { width: fit-content; gap: 28px; padding-inline: 20px; font-size: 13px; }
 .work-copy > p.work-note { margin-top: 22px; margin-bottom: 0; color: #62738d; font-size: 11px; }
-.work-preview { min-width: 0; margin: 0; transform: rotate(-1.5deg); }
+.work-preview { min-width: 0; margin: 0; }
 .work-preview > a { display: block; overflow: hidden; border: 1px solid #ccd5e5; border-radius: 10px; background: #fff; box-shadow: 0 25px 45px -20px #243c6840; transition: transform 180ms ease; }
 .work-preview > a:hover { transform: translateY(-4px); }
 .preview-bar { display: flex; justify-content: space-between; align-items: center; gap: 15px; padding: 12px 15px; border-bottom: 1px solid #dfe5ed; background: #f9faff; color: #62718a; font-size: 10px; }
@@ -198,7 +198,6 @@ h1, h2 { text-wrap: balance; }
   .work-layout { grid-template-columns: 1fr; gap: 38px; }
   .work-copy > p:not(.eyebrow) { max-width: 500px; }
   .work-section { padding-block: 64px; }
-  .work-preview { transform: none; }
   .contact-section { gap: 7%; padding-block: 65px; }
   .contact-copy h2 { font-size: 36px; }
   .contact-email { font-size: 16px; gap: 5px; }
